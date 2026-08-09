@@ -167,3 +167,11 @@ file:
     access-key: minioadmin
     secret-key: minioadmin
 
+# Aegis 业务日志配置
+aegis:
+  log:
+    # 接口日志保留天数，支持 7, 30, 280 等。
+    # 设置为 30 表示只保留最近 30 天日志。
+    # 设置为 -1 或 0 则代表永不清理（默认配置）
+    retention-days: 30
+
