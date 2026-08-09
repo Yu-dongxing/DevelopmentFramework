@@ -43,6 +43,22 @@ public class LocalStorageServiceImpl implements StorageService {
             if (originalFilename != null && originalFilename.contains(".")) {
                 extension = originalFilename.substring(originalFilename.lastIndexOf("."));
             }
+
+            // 后缀黑名单校验 (仅在配置为本地存储时校验，防范 RCE 和 存储型 XSS)
+            String cleanExt = extension.startsWith(".") ? extension.substring(1) : extension;
+            if (isBlacklistedExtension(cleanExt)) {
+                throw new BusinessException("本地存储安全策略拦截：禁止上传含有敏感后缀的文件！");
+            }
+
+            // 深度防伪校验 (魔数 Magic Number 校验，防范恶意脚本/网页伪装成图片上传)
+            try (java.io.InputStream is = file.getInputStream()) {
+                String magicType = cn.hutool.core.io.FileTypeUtil.getType(is);
+                if (magicType != null && isBlacklistedExtension(magicType)) {
+                    log.warn("检测到恶意文件伪装！原始文件名: {}, 真实物理文件类型(魔数): {}", originalFilename, magicType);
+                    throw new BusinessException("本地存储安全策略拦截：上传文件的真实物理类型已被系统禁止！");
+                }
+            }
+
             String fileName = UUID.randomUUID().toString() + extension;
             
             // 获取当前年月
@@ -156,5 +172,16 @@ public class LocalStorageServiceImpl implements StorageService {
     @Override
     public StorageType getType() {
         return StorageType.LOCAL;
+    }
+
+    private boolean isBlacklistedExtension(String extension) {
+        if (extension == null || extension.isEmpty()) {
+            return false;
+        }
+        // 包含常见的动态脚本 (防 RCE) 及静态超文本 (防 Stored XSS)
+        java.util.Set<String> blacklist = java.util.Set.of(
+                "jsp", "jspx", "properties", "yml", "yaml", "asp", "aspx", "sh", "exe", "bat", "cmd", "php", "html", "htm"
+        );
+        return blacklist.contains(extension.toLowerCase());
     }
 }

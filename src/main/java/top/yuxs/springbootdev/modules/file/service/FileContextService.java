@@ -61,6 +61,11 @@ public class FileContextService {
             throw new BusinessException("上传文件不能为空");
         }
 
+        // 校验 path 参数安全字符，防止路径越界和云端特殊 key 注入
+        if (path != null && !path.matches("^[a-zA-Z0-9_\\-]+$")) {
+            throw new BusinessException("非法子路径参数，仅支持字母、数字、下划线及中划线！");
+        }
+
         StorageService storageService = storageFactory.getActiveService();
 
         // 1. 物理上传 (此时不计算 MD5，避免流消耗)
