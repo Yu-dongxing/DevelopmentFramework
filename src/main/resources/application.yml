@@ -159,3 +159,11 @@ file:
     bucket-name: my-bucket
     access-key: xxxx
     secret-key: xxxx
+
+  minio:
+    domain: http://localhost:9000
+    endpoint: http://localhost:9000
+    bucket-name: springbootdev
+    access-key: minioadmin
+    secret-key: minioadmin
+

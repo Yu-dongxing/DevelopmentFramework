@@ -201,6 +201,13 @@
             <version>${hutool.version}</version>
         </dependency>
 
+        <!-- MinIO 官方 Java SDK (使用 9.0.3 最新稳定版) -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>9.0.3</version>
+        </dependency>
+
         <!-- Fastjson2：阿里开源的新一代高性能 JSON 解析库 (升级替换老版本) -->
         <dependency>
             <groupId>com.alibaba.fastjson2</groupId>
@@ -215,10 +222,11 @@
         </dependency>
 
         <!-- OkHttp：高性能的 HTTP/HTTP2 客户端 (版本由 Spring Boot Parent 管理) -->
-<!--        <dependency>-->
-<!--            <groupId>com.squareup.okhttp3</groupId>-->
-<!--            <artifactId>okhttp</artifactId>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
 
         <!-- BouncyCastle：强大的密码学/加解密工具包 (已升级为 jdk18on 适配现代 Java) -->
         <dependency>

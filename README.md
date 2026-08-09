@@ -1,4 +1,4 @@
-# Aegis-Boot (神盾 · 现代安全开发架构)
+# Aegis-Boot (神盾 · 现代安全开发架构-开发框架)
 
 [![Java Version](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.5-brightgreen.svg)](https://spring.io/projects/spring-boot)

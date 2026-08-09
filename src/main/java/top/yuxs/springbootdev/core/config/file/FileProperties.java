@@ -38,6 +38,11 @@ public class FileProperties {
      */
     private AliyunConfig aliyun = new AliyunConfig();
 
+    /**
+     * MinIO 存储配置
+     */
+    private MinioConfig minio = new MinioConfig();
+
     @Data
     public static class LocalConfig {
         /**
@@ -68,6 +73,30 @@ public class FileProperties {
          * 存储桶名称
          */
         private String bucketName;
+        /**
+         * AccessKey
+         */
+        private String accessKey;
+        /**
+         * SecretKey
+         */
+        private String secretKey;
+    }
+
+    @Data
+    public static class MinioConfig {
+        /**
+         * 访问域名
+         */
+        private String domain;
+        /**
+         * 端点
+         */
+        private String endpoint;
+        /**
+         * 存储桶名称
+         */
+        private String bucketName = "springbootdev";
         /**
          * AccessKey
          */
