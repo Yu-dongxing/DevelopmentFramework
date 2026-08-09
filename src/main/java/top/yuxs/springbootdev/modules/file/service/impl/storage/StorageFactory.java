@@ -10,8 +10,8 @@ package top.yuxs.springbootdev.modules.file.service.impl.storage;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import top.yuxs.springbootdev.core.config.file.FileProperties;
-import top.yuxs.springbootdev.core.enums.db.StorageType;
+import top.yuxs.springbootdev.modules.file.config.FileProperties;
+import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 
 import java.util.HashMap;

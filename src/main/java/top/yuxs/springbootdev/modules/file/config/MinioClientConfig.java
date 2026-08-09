@@ -5,7 +5,7 @@
  * @since 2026/08/09
  */
 
-package top.yuxs.springbootdev.core.config.file;
+package top.yuxs.springbootdev.modules.file.config;
 
 import io.minio.MinioClient;
 import org.springframework.beans.factory.annotation.Autowired;

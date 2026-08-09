@@ -5,7 +5,7 @@
  * @since 2026/05/28
  */
 
-package top.yuxs.springbootdev.modules.system.event;
+package top.yuxs.springbootdev.modules.system.listener;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -13,6 +13,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import top.yuxs.springbootdev.modules.system.entity.SysLog;
 import top.yuxs.springbootdev.modules.system.service.SysLogService;
+import top.yuxs.springbootdev.modules.system.event.AegisLogEvent;
 
 /**
  * 操作日志事件监听处理器 (在 Java 21 虚拟线程中非阻塞执行)

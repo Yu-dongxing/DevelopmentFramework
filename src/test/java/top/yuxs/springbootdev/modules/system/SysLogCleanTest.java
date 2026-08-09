@@ -5,7 +5,7 @@
  * @since 2026/08/09
  */
 
-package top.yuxs.springbootdev;
+package top.yuxs.springbootdev.modules.system;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -15,8 +15,6 @@ import top.yuxs.springbootdev.modules.system.entity.SysLog;
 import top.yuxs.springbootdev.modules.system.service.SysLogService;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 接口日志物理清理与分批删除功能单元测试

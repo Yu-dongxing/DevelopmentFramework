@@ -8,7 +8,7 @@
 package top.yuxs.springbootdev.modules.file.service.impl.storage;
 
 import org.springframework.web.multipart.MultipartFile;
-import top.yuxs.springbootdev.core.enums.db.StorageType;
+import top.yuxs.springbootdev.modules.file.enums.StorageType;
 
 /**
  * 存储服务接口

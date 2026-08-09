@@ -18,7 +18,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 import top.yuxs.springbootdev.modules.file.entity.SysFile;
-import top.yuxs.springbootdev.core.enums.db.StorageType;
+import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.event.FileUploadedEvent;
 import top.yuxs.springbootdev.modules.file.service.impl.storage.StorageFactory;

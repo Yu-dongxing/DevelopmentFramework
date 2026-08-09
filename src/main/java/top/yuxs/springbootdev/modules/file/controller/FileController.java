@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import top.yuxs.springbootdev.core.common.Result;
-import top.yuxs.springbootdev.core.config.file.FileProperties;
+import top.yuxs.springbootdev.modules.file.config.FileProperties;
 import top.yuxs.springbootdev.modules.file.entity.SysFile;
 import top.yuxs.springbootdev.modules.file.service.FileContextService;
 import top.yuxs.springbootdev.modules.file.service.SysFileService;
@@ -87,7 +87,7 @@ public class FileController {
     public Result<Map<String, Object>> getConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put("active", fileProperties.getActive());
-        if (fileProperties.getActive() == top.yuxs.springbootdev.core.enums.db.StorageType.LOCAL) {
+        if (fileProperties.getActive() == top.yuxs.springbootdev.modules.file.enums.StorageType.LOCAL) {
             config.put("domain", fileProperties.getLocal().getDomain());
             config.put("accessPath", fileProperties.getLocal().getAccessPath());
         }

@@ -5,12 +5,12 @@
  * @since 2026/04/16
  */
 
-package top.yuxs.springbootdev.core.config.file;
+package top.yuxs.springbootdev.modules.file.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
-import top.yuxs.springbootdev.core.enums.db.StorageType;
+import top.yuxs.springbootdev.modules.file.enums.StorageType;
 
 /**
  * 文件上传配置属性

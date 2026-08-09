@@ -10,7 +10,7 @@ package top.yuxs.springbootdev.core.db.annotation;
 
 
 
-import top.yuxs.springbootdev.core.enums.db.ForeignKeyAction;
+import top.yuxs.springbootdev.core.db.enums.ForeignKeyAction;
 
 import java.lang.annotation.*;
 

@@ -11,7 +11,7 @@ package top.yuxs.springbootdev.core.db.annotation;
 
 
 
-import top.yuxs.springbootdev.core.enums.db.IndexType;
+import top.yuxs.springbootdev.core.db.enums.IndexType;
 
 import java.lang.annotation.*;
 

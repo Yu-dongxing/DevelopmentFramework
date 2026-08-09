@@ -12,8 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import top.yuxs.springbootdev.core.config.file.FileProperties;
-import top.yuxs.springbootdev.core.enums.db.StorageType;
+import top.yuxs.springbootdev.modules.file.config.FileProperties;
+import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.service.impl.storage.StorageService;
 

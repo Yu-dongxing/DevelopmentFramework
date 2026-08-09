@@ -5,7 +5,7 @@
  * @since 2026/04/16
  */
 
-package top.yuxs.springbootdev.core.enums.db;
+package top.yuxs.springbootdev.modules.file.enums;
 
 import lombok.Getter;
 

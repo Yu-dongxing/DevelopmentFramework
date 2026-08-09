@@ -5,7 +5,7 @@
  * @since 2026/04/11
  */
 
-package top.yuxs.springbootdev.core.config.db;
+package top.yuxs.springbootdev.core.db.config;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

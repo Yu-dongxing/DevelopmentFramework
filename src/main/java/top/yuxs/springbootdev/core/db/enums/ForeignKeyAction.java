@@ -5,7 +5,7 @@
  * @since 2026/04/11
  */
 
-package top.yuxs.springbootdev.core.enums.db;
+package top.yuxs.springbootdev.core.db.enums;
 
 /**
  * 外键级联操作类型

@@ -10,7 +10,7 @@ package top.yuxs.springbootdev.modules.system.task;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import top.yuxs.springbootdev.core.config.AegisLogProperties;
+import top.yuxs.springbootdev.modules.system.config.AegisLogProperties;
 import top.yuxs.springbootdev.modules.system.service.SysLogService;
 
 /**

@@ -13,7 +13,7 @@ import top.yuxs.springbootdev.core.db.annotation.ForeignKey;
 import top.yuxs.springbootdev.core.db.annotation.Index;
 import top.yuxs.springbootdev.core.db.metadata.ColumnMetadata;
 import top.yuxs.springbootdev.core.db.metadata.TableMetadata;
-import top.yuxs.springbootdev.core.enums.db.IndexType;
+import top.yuxs.springbootdev.core.db.enums.IndexType;
 
 import java.util.ArrayList;
 import java.util.List;
