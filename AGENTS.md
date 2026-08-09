@@ -19,6 +19,13 @@ Local runtime expects MySQL 8+ and Redis 6+. Configure connections through envir
 
 Use four-space indentation, UTF-8, `PascalCase` classes, `camelCase` members, and lowercase packages. Preserve the `top.yuxs.springbootdev` hierarchy and layer suffixes such as `Controller`, `Service`, `ServiceImpl`, `Mapper`, and `Test`. Keep REST paths and capability names consistent with nearby code. Lombok is supported. No formatter or linter is configured, so match surrounding import, annotation, and brace style; avoid unrelated reformatting.
 
+### Layer Placement, IDs, and API Responses
+
+- Place entities in `top.yuxs.springbootdev.modules.[module].entity`, mappers in `.mapper`, service interfaces in `.service`, service implementations in `.service.impl`, and controllers in `.controller`.
+- Use `Long` for Snowflake primary keys. The Precision Engine serializes these IDs as strings for REST clients; do not introduce alternative ID output handling that could lose JavaScript precision.
+- Every controller endpoint must wrap its response in `Result<T>`.
+- Protect inbound requests with the Sa-Token Firewall and preserve its request-blocking and RCE-protection behavior when changing security-related code.
+
 ### Generated Code Requirements
 
 - All generated code must follow every existing project convention. Before adding a helper or common operation, search the repository and reuse an existing method with the same responsibility. Do not duplicate equivalent logic unless reuse is demonstrably unsuitable.
@@ -30,9 +37,18 @@ Use four-space indentation, UTF-8, `PascalCase` classes, `camelCase` members, an
 
 Every persistent entity must extend the shared `BaseEntity` and participate in the project's automatic table-creation system. Declare the table with `@TableName` and `@TableComment`. Each persistent field must explicitly declare its mapped column and schema metadata with `@TableField`, `@ColumnComment`, and `@ColumnType`; add `@DefaultValue`, `@Index`, `@ForeignKey`, or related annotations when the database semantics require them. Import these annotations at the file header. New or changed entity definitions must keep table names, column names, types, and Chinese comments synchronized with the intended database schema.
 
+## Modularity and Component Boundaries
+
+- Put module-specific `Properties` and `Configuration` classes in `modules/[module]/config`; `core/config` is reserved for generic infrastructure only.
+- Put module-specific enums in `modules/[module]/enums`; `core/enums` is reserved for genuinely shared enums.
+- Keep asynchronous business events and listeners in symmetric packages: event definitions in `modules/[module]/event`, listener implementations in `modules/[module]/listener`. Listeners must use `@Async("taskExecutor")` to run on the virtual-thread executor.
+- Keep self-contained technical components free of global-package leakage. For example, the automatic DDL component keeps its configuration and bootstrap classes in `core/db/config`, and its private enums in `core/db/enums`. Do not place component-private types in `core/config` or `core/enums`.
+
 ## Testing Guidelines
 
-Tests use JUnit Jupiter, Spring Boot Test, Mockito, and H2. Name files `*Test.java`, mirror the tested package, and prefer focused unit tests; use `@SpringBootTest` only for application wiring. Add regression tests for authorization, serialization, persistence, and storage changes. No coverage threshold is enforced, but behavior changes should include relevant tests. Run `./mvnw test` before submitting.
+Tests use JUnit Jupiter, Spring Boot Test, Mockito, and H2. Name files `*Test.java`, mirror the tested package, and prefer focused unit tests; use `@SpringBootTest` only for application wiring. Add regression tests for authorization, serialization, persistence, and storage changes. No coverage threshold is enforced, but behavior changes should include relevant tests.
+
+Maintain a strict 1:1 package-path mirror between `src/main/java` and `src/test/java`. The test source root may contain only `SpringbootDevApplicationTests.java`; place all module-specific tests under their matching package path. Before submitting any code, configuration, or refactoring change, run ` .\mvnw clean test` from the repository root and ensure it finishes with `BUILD SUCCESS`.
 
 ## Commit & Pull Request Guidelines
 
