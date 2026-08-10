@@ -131,3 +131,13 @@ public class User extends BaseEntity {
 
 ---
 **Copyright © 2026 Aegis-Boot Team. All rights reserved.**
+
+## 开发工具
+
+`tools/ProjectRenameTool.java` 是仅供开发期使用的项目重命名工具，不参与 Maven 编译和生产 JAR 打包。请先在版本控制下确认工作区状态，再从项目根目录执行：
+
+```powershell
+java tools/ProjectRenameTool.java
+```
+
+该工具默认仅预览改名计划；只有将其配置中的 `execute` 设为 `true` 才会实际修改文件。

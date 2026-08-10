@@ -5,10 +5,6 @@
  * @since 2026/04/11
  */
 
-package top.yuxs.springbootdev.core.utils;
-
-
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitOption;
@@ -44,6 +40,13 @@ public final class ProjectRenameTool {
 
     private static final Pattern PACKAGE_PATTERN = Pattern.compile("^\\s*package\\s+([\\w.]+)\\s*;", Pattern.MULTILINE);
     private static final Pattern CLASS_PATTERN = Pattern.compile("\\bclass\\s+(\\w+)\\b");
+    /**
+     * 精确匹配启动类注解，避免将普通类中的 import 语句误识别为启动类。
+     */
+    private static final Pattern SPRING_BOOT_APPLICATION_ANNOTATION_PATTERN = Pattern.compile(
+            "^\\s*@SpringBootApplication(?:\\s*\\([^\\r\\n]*\\))?\\s*$",
+            Pattern.MULTILINE
+    );
     private static final List<String> TEXT_FILE_SUFFIXES = List.of(
             ".java", ".xml", ".yml", ".yaml", ".properties", ".md", ".txt", ".gitignore", ".iml"
     );
@@ -94,7 +97,7 @@ public final class ProjectRenameTool {
             // 是否重命名项目根目录。Windows 下如果 IDE 占用目录，可能会失败。
             boolean renameRootDir = true;
             // 是否正式执行。false 仅预览，true 才会真正修改文件。
-            boolean execute = true;
+            boolean execute = false;
 
             if (newProjectName == null && newGroupId == null && newBasePackage == null && newApplicationClassName == null) {
                 throw new IllegalArgumentException("请先在 RenameConfig 中至少填写一项新值。");
@@ -315,14 +318,16 @@ public final class ProjectRenameTool {
 
             for (Path file : candidates) {
                 String content = Files.readString(file, StandardCharsets.UTF_8);
-                if (!content.contains("@SpringBootApplication")) {
+                Matcher springBootApplicationMatcher = SPRING_BOOT_APPLICATION_ANNOTATION_PATTERN.matcher(content);
+                if (!springBootApplicationMatcher.find()) {
                     continue;
                 }
                 Matcher packageMatcher = PACKAGE_PATTERN.matcher(content);
                 if (!packageMatcher.find()) {
                     continue;
                 }
-                Matcher classMatcher = CLASS_PATTERN.matcher(content);
+                // 从启动类注解之后定位类声明，避免命中注释或 import 中的无关文本。
+                Matcher classMatcher = CLASS_PATTERN.matcher(content.substring(springBootApplicationMatcher.start()));
                 if (!classMatcher.find()) {
                     continue;
                 }

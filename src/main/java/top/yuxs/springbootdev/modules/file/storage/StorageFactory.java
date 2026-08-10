@@ -5,7 +5,7 @@
  * @since 2026/04/16
  */
 
-package top.yuxs.springbootdev.modules.file.service.impl.storage;
+package top.yuxs.springbootdev.modules.file.storage;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;

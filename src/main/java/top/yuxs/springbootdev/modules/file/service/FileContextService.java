@@ -21,8 +21,8 @@ import top.yuxs.springbootdev.modules.file.entity.SysFile;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.event.FileUploadedEvent;
-import top.yuxs.springbootdev.modules.file.service.impl.storage.StorageFactory;
-import top.yuxs.springbootdev.modules.file.service.impl.storage.StorageService;
+import top.yuxs.springbootdev.modules.file.storage.StorageFactory;
+import top.yuxs.springbootdev.modules.file.storage.StorageService;
 import top.yuxs.springbootdev.core.utils.IpUtils;
 
 import java.io.IOException;

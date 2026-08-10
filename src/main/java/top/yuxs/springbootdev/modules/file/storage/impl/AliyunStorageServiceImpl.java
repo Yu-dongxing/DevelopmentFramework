@@ -5,7 +5,7 @@
  * @since 2026/04/16
  */
 
-package top.yuxs.springbootdev.modules.file.service.impl.storage.impl;
+package top.yuxs.springbootdev.modules.file.storage.impl;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.CannedAccessControlList;
@@ -18,7 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import top.yuxs.springbootdev.modules.file.config.FileProperties;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
-import top.yuxs.springbootdev.modules.file.service.impl.storage.StorageService;
+import top.yuxs.springbootdev.modules.file.storage.StorageService;
 
 import java.io.InputStream;
 import java.util.UUID;

@@ -5,14 +5,13 @@
  * @since 2026/08/09
  */
 
-package top.yuxs.springbootdev.modules.system;
+package top.yuxs.springbootdev.modules.system.service;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import top.yuxs.springbootdev.modules.system.entity.SysLog;
-import top.yuxs.springbootdev.modules.system.service.SysLogService;
 
 import java.time.LocalDateTime;
 
@@ -23,7 +22,7 @@ import java.time.LocalDateTime;
  * @since 2026/08/09
  */
 @SpringBootTest
-class SysLogCleanTest {
+class SysLogServiceTest {
 
     @Autowired
     private SysLogService sysLogService;

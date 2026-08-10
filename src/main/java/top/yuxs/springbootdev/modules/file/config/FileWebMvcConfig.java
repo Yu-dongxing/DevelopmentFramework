@@ -5,13 +5,12 @@
  * @since 2026/04/11
  */
 
-package top.yuxs.springbootdev.core.config;
+package top.yuxs.springbootdev.modules.file.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import top.yuxs.springbootdev.modules.file.config.FileProperties;
 
 import java.io.File;
 
@@ -19,7 +18,7 @@ import java.io.File;
  * 实现 WebMvcConfigurer 接口，将请求路径（URL）映射到物理磁盘路径
  */
 @Configuration
-public class MyWebMvcConfig implements WebMvcConfigurer {
+public class FileWebMvcConfig implements WebMvcConfigurer {
 
     @Autowired
     private FileProperties fileProperties;
