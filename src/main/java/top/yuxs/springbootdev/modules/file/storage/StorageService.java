@@ -25,7 +25,7 @@ public interface StorageService {
      * @param path 相对路径/子目录
      * @return 存储后的相对路径/对象Key
      */
-    String upload(MultipartFile file, String path);
+    StorageUploadResult upload(MultipartFile file, String path);
 
     /**
      * 删除文件

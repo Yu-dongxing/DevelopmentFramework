@@ -19,8 +19,11 @@ import top.yuxs.springbootdev.modules.file.config.FileProperties;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
+import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
 
 import java.io.InputStream;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
 import java.util.UUID;
 
 /**
@@ -40,7 +43,7 @@ public class AliyunStorageServiceImpl implements StorageService {
     private OSS ossClient;
 
     @Override
-    public String upload(MultipartFile file, String path) {
+    public StorageUploadResult upload(MultipartFile file, String path) {
         checkClientInitialized();
 
         try {
@@ -68,12 +71,14 @@ public class AliyunStorageServiceImpl implements StorageService {
             metadata.setContentType(file.getContentType());
 
             // 上传文件流到 阿里云 OSS
-            try (InputStream is = file.getInputStream()) {
-                ossClient.putObject(new PutObjectRequest(bucketName, objectKey, is, metadata));
+            MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            try (InputStream is = file.getInputStream();
+                 DigestInputStream digestInputStream = new DigestInputStream(is, messageDigest)) {
+                ossClient.putObject(new PutObjectRequest(bucketName, objectKey, digestInputStream, metadata));
             }
 
             log.info("阿里云 OSS 文件上传成功: {}/{}", bucketName, objectKey);
-            return objectKey;
+            return new StorageUploadResult(objectKey, bucketName, toHex(messageDigest.digest()));
         } catch (Exception e) {
             log.error("阿里云 OSS 文件上传失败", e);
             throw new BusinessException("阿里云 OSS 文件上传失败: " + e.getMessage());
@@ -133,5 +138,16 @@ public class AliyunStorageServiceImpl implements StorageService {
             ossClient.setBucketAcl(bucketName, CannedAccessControlList.PublicRead);
             log.info("阿里云 OSS 存储桶 [{}] 创建并公共读初始化成功！", bucketName);
         }
+    }
+
+    /**
+     * 将摘要字节转换为小写十六进制字符串。
+     */
+    private String toHex(byte[] bytes) {
+        StringBuilder builder = new StringBuilder(bytes.length * 2);
+        for (byte value : bytes) {
+            builder.append(String.format("%02x", value));
+        }
+        return builder.toString();
     }
 }

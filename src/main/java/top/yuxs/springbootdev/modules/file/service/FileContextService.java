@@ -7,7 +7,7 @@
 
 package top.yuxs.springbootdev.modules.file.service;
 
-import cn.hutool.crypto.digest.DigestUtil;
+import cn.dev33.satoken.stp.StpUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,11 +21,12 @@ import top.yuxs.springbootdev.modules.file.entity.SysFile;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.event.FileUploadedEvent;
+import top.yuxs.springbootdev.modules.file.event.FilePhysicalDeleteEvent;
 import top.yuxs.springbootdev.modules.file.storage.StorageFactory;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
+import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
 import top.yuxs.springbootdev.core.utils.IpUtils;
 
-import java.io.IOException;
 
 /**
  * 文件上下文服务（业务编排层）
@@ -69,43 +70,26 @@ public class FileContextService {
         StorageService storageService = storageFactory.getActiveService();
 
         // 1. 物理上传 (此时不计算 MD5，避免流消耗)
-        String filePath = storageService.upload(file, path);
-        String fileUrl = storageService.buildUrl(filePath);
-
-        // 2. 异步/后续计算 MD5 (从物理文件读取)
-        String md5 = "unknown";
-        try {
-            // 注意：此处如果是本地存储，可以直接读文件；如果是 OSS，通常在上传时由 SDK 返回或通过流计算
-            // 为了架构统一，如果本地存储，我们直接读本地文件计算
-            if (storageService.getType() == StorageType.LOCAL) {
-                String uploadPath = storageFactory.getFileProperties().getLocal().getUploadPath();
-                java.nio.file.Path physicalPath = java.nio.file.Paths.get(uploadPath, filePath).toAbsolutePath().normalize();
-                try (java.io.InputStream is = java.nio.file.Files.newInputStream(physicalPath)) {
-                    md5 = DigestUtil.md5Hex(is);
-                }
-            } else {
-                // OSS 场景下，理想做法是利用 SDK 返回的 MD5，此处占位
-                md5 = DigestUtil.md5Hex(file.getOriginalFilename() + file.getSize());
-            }
-        } catch (IOException e) {
-            log.warn("计算文件 MD5 失败: {}", filePath, e);
-        }
+        StorageUploadResult uploadResult = storageService.upload(file, path);
+        String fileUrl = storageService.buildUrl(uploadResult.filePath());
 
         // 3. 构造落库实体
         SysFile sysFile = new SysFile();
         sysFile.setBizId(bizId);
         sysFile.setBizType(bizType);
         sysFile.setOriginalName(file.getOriginalFilename());
-        sysFile.setFileName(filePath.substring(filePath.lastIndexOf("/") + 1));
+        sysFile.setFileName(uploadResult.filePath().substring(uploadResult.filePath().lastIndexOf("/") + 1));
         sysFile.setFileExt(getFileExtension(file.getOriginalFilename()));
         sysFile.setFileSize(file.getSize());
         sysFile.setContentType(file.getContentType());
-        sysFile.setMd5(md5);
+        sysFile.setMd5(uploadResult.md5());
         sysFile.setStorageType(storageService.getType().name());
-        sysFile.setFilePath(filePath);
+        sysFile.setStorageBucket(uploadResult.storageBucket());
+        sysFile.setFilePath(uploadResult.filePath());
         sysFile.setFileUrl(fileUrl);
         sysFile.setUploadStatus(1);
         sysFile.setUploadIp(getIpAddress());
+        fillUploader(sysFile);
 
         try {
             // 4. 同步保存记录，保障事务强一致性
@@ -114,8 +98,8 @@ public class FileContextService {
             eventPublisher.publishEvent(new FileUploadedEvent(this, sysFile));
         } catch (Exception e) {
             // 6. 异常补偿：落库失败则删除已上传的物理文件
-            log.error("文件记录落库/保存失败，执行补偿物理删除: {}", filePath, e);
-            storageService.delete(filePath);
+            log.error("文件记录落库/保存失败，执行补偿物理删除: {}", uploadResult.filePath(), e);
+            storageService.delete(uploadResult.filePath());
             throw new BusinessException("文件上传保存记录失败");
         }
 
@@ -136,18 +120,11 @@ public class FileContextService {
         }
 
         if (physical) {
-            // 物理删除：先删物理文件，再删数据库记录
-            try {
-                StorageService storageService = storageFactory.getService(StorageType.valueOf(sysFile.getStorageType()));
-                storageService.delete(sysFile.getFilePath());
-            } catch (Exception e) {
-                log.error("物理文件删除失败: {}", sysFile.getFilePath(), e);
-                // 抛出异常阻断事务，防止产生无法追踪的孤儿物理文件
-                throw new BusinessException("物理文件删除失败，阻断数据库元数据删除！");
+            if (!sysFileService.markPhysicalDeletePending(id) || !sysFileService.removeById(id)) {
+                throw new BusinessException("文件删除状态更新失败");
             }
-            
-            // 后删记录 (调用物理删除方法，绕过 @TableLogic)
-            sysFileService.physicalDeleteById(id);
+            sysFile.setPhysicalDeleteStatus(1);
+            eventPublisher.publishEvent(new FilePhysicalDeleteEvent(this, sysFile));
         } else {
             // 逻辑删除 (MyBatis-Plus 配置 @TableLogic 后 removeById 即为逻辑删除)
             sysFileService.removeById(id);
@@ -177,5 +154,18 @@ public class FileContextService {
             return IpUtils.getClientIp(request);
         }
         return "unknown";
+    }
+
+    /**
+     * 写入上传者审计信息；匿名上传统一登记为访客。
+     */
+    private void fillUploader(SysFile sysFile) {
+        if (!StpUtil.isLogin()) {
+            sysFile.setUsername("访客");
+            return;
+        }
+        sysFile.setUserId(StpUtil.getLoginIdAsLong());
+        Object username = StpUtil.getSession(false) == null ? null : StpUtil.getSession().get("username");
+        sysFile.setUsername(username == null ? StpUtil.getLoginId().toString() : username.toString());
     }
 }

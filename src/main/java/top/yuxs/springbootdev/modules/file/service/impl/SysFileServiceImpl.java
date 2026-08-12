@@ -13,6 +13,8 @@ import top.yuxs.springbootdev.modules.file.entity.SysFile;
 import top.yuxs.springbootdev.modules.file.mapper.SysFileMapper;
 import top.yuxs.springbootdev.modules.file.service.SysFileService;
 
+import java.util.List;
+
 /**
  * 文件信息服务实现
  *
@@ -25,5 +27,15 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
     @Override
     public boolean physicalDeleteById(Long id) {
         return baseMapper.physicalDeleteById(id) > 0;
+    }
+
+    @Override
+    public boolean markPhysicalDeletePending(Long id) {
+        return baseMapper.markPhysicalDeletePending(id) > 0;
+    }
+
+    @Override
+    public List<SysFile> listPendingPhysicalDeletes(int limit) {
+        return baseMapper.selectPendingPhysicalDeletes(limit);
     }
 }

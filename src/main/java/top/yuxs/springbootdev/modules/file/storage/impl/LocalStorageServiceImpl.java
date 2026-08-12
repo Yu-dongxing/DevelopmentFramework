@@ -15,12 +15,16 @@ import top.yuxs.springbootdev.modules.file.config.FileProperties;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
+import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
 
 /**
  * 本地存储服务实现
@@ -36,7 +40,7 @@ public class LocalStorageServiceImpl implements StorageService {
     private FileProperties fileProperties;
 
     @Override
-    public String upload(MultipartFile file, String path) {
+    public StorageUploadResult upload(MultipartFile file, String path) {
         try {
             String originalFilename = file.getOriginalFilename();
             String extension = "";
@@ -87,11 +91,14 @@ public class LocalStorageServiceImpl implements StorageService {
             if (!targetPath.startsWith(rootPath)) {
                 throw new BusinessException("非法上传路径，禁止越界！");
             }
-            file.transferTo(targetPath.toFile());
-            
-            // 返回相对路径：path/yyyy/MM/fileName
-            return Paths.get(relativeDir, fileName).toString().replace("\\", "/");
-        } catch (IOException e) {
+            MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            try (InputStream inputStream = file.getInputStream();
+                 DigestInputStream digestInputStream = new DigestInputStream(inputStream, messageDigest)) {
+                Files.copy(digestInputStream, targetPath);
+            }
+            String filePath = Paths.get(relativeDir, fileName).toString().replace("\\", "/");
+            return new StorageUploadResult(filePath, "local", toHex(messageDigest.digest()));
+        } catch (Exception e) {
             log.error("本地文件上传失败", e);
             throw new BusinessException("文件上传失败");
         }
@@ -183,5 +190,16 @@ public class LocalStorageServiceImpl implements StorageService {
                 "jsp", "jspx", "properties", "yml", "yaml", "asp", "aspx", "sh", "exe", "bat", "cmd", "php", "html", "htm"
         );
         return blacklist.contains(extension.toLowerCase());
+    }
+
+    /**
+     * 将摘要字节转换为小写十六进制字符串。
+     */
+    private String toHex(byte[] bytes) {
+        StringBuilder builder = new StringBuilder(bytes.length * 2);
+        for (byte value : bytes) {
+            builder.append(String.format("%02x", value));
+        }
+        return builder.toString();
     }
 }

@@ -16,8 +16,11 @@ import top.yuxs.springbootdev.modules.file.config.FileProperties;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
+import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
 
 import java.io.InputStream;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
 import java.util.UUID;
 
 /**
@@ -37,7 +40,7 @@ public class MinioStorageServiceImpl implements StorageService {
     private MinioClient minioClient;
 
     @Override
-    public String upload(MultipartFile file, String path) {
+    public StorageUploadResult upload(MultipartFile file, String path) {
         checkClientInitialized();
 
         try {
@@ -60,19 +63,21 @@ public class MinioStorageServiceImpl implements StorageService {
             ensureBucketExists(bucketName);
 
             // 上传文件流到 MinIO
-            try (InputStream is = file.getInputStream()) {
+            MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            try (InputStream is = file.getInputStream();
+                 DigestInputStream digestInputStream = new DigestInputStream(is, messageDigest)) {
                 minioClient.putObject(
                         PutObjectArgs.builder()
                                 .bucket(bucketName)
                                 .object(objectKey)
-                                .stream(is, file.getSize(), -1L)
+                                .stream(digestInputStream, file.getSize(), -1L)
                                 .contentType(file.getContentType())
                                 .build()
                 );
             }
 
             log.info("MinIO 文件上传成功: {}/{}", bucketName, objectKey);
-            return objectKey;
+            return new StorageUploadResult(objectKey, bucketName, toHex(messageDigest.digest()));
         } catch (Exception e) {
             log.error("MinIO 文件上传失败", e);
             throw new BusinessException("MinIO 文件上传失败: " + e.getMessage());
@@ -154,5 +159,16 @@ public class MinioStorageServiceImpl implements StorageService {
             );
             log.info("MinIO 存储桶 [{}] 创建成功，并成功设置为匿名只读策略！", bucketName);
         }
+    }
+
+    /**
+     * 将摘要字节转换为小写十六进制字符串。
+     */
+    private String toHex(byte[] bytes) {
+        StringBuilder builder = new StringBuilder(bytes.length * 2);
+        for (byte value : bytes) {
+            builder.append(String.format("%02x", value));
+        }
+        return builder.toString();
     }
 }

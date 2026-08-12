@@ -10,10 +10,13 @@ package top.yuxs.springbootdev.modules.file.entity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import top.yuxs.springbootdev.core.db.annotation.*;
 import top.yuxs.springbootdev.core.common.BaseEntity;
+
+import java.util.Map;
 
 /**
  * 文件信息表
@@ -132,6 +135,14 @@ public class SysFile extends BaseEntity {
     private Integer isDeleted;
 
     /**
+     * 物理删除状态（0：无需删除，1：待删除）。
+     */
+    @TableField("physical_delete_status")
+    @DefaultValue("0")
+    @ColumnComment("物理删除状态(0:无需删除, 1:待删除)")
+    private Integer physicalDeleteStatus;
+
+    /**
      * 上传者ID
      */
     @TableField("user_id")
@@ -155,8 +166,8 @@ public class SysFile extends BaseEntity {
     /**
      * 扩展元数据
      */
-    @TableField(value = "metadata", typeHandler = com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler.class)
+    @TableField(value = "metadata", typeHandler = JacksonTypeHandler.class)
     @ColumnType("json")
     @ColumnComment("扩展元数据")
-    private java.util.Map<String, Object> metadata;
+    private Map<String, Object> metadata;
 }
