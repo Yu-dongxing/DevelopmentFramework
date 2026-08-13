@@ -52,7 +52,7 @@ Maintain a strict 1:1 package-path mirror between `src/main/java` and `src/test/
 
 ## Commit & Pull Request Guidelines
 
-History generally follows Conventional Commit subjects, for example `feat(file): add storage strategy` or `fix(oauth): handle callback`. Use `feat`, `fix`, `refactor`, `test`, or `docs` with an optional scope. Pull requests should explain the change, list verification commands, link issues, and call out schema, configuration, API, or security impacts. Include request/response examples for endpoint changes.
+History generally follows Conventional Commit subjects. Use `feat`, `fix`, `refactor`, `test`, or `docs` with an optional scope. 提交 GitHub 时，默认直接提交并推送到 `master`，不创建分支或 Pull Request；除非用户明确要求，否则不得改变该流程。提交内容说明必须使用中文，例如：`fix(file): “完善文件删除一致性与审计”`。汇报时使用格式：`提交：9a8ed73 fix(file): “中文说明”`。如用户明确要求创建 Pull Request，PR 应说明变更、列出验证命令、关联 issue，并标注 schema、配置、API 或安全影响；接口变更还应包含请求/响应示例。
 
 ## Security & Configuration
 

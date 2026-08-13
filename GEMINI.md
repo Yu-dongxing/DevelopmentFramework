@@ -56,7 +56,7 @@ Aegis-Boot is a modern, high-performance full-stack development framework based 
 - **Services (服务层)**：接口放置于 `top.yuxs.springbootdev.modules.[module].service`，实现类放置于 `.impl` 子包下。
 - **Controllers (控制层)**：统一放置于 `top.yuxs.springbootdev.modules.[module].controller`。
 - **ID Management (主键设计)**：统一使用 `Long` 声明 Snowflake 唯一 ID；系统底层自动通过 Jackson 序列化处理器（Precision Engine）将其转为 String 格式输出给 REST 客户端，防止前端 JavaScript 发生高位精度丢失。
-- **Security (安全策略)**：利用 Sa-Token Firewall 实施入站请求的安全阻断与拦截，保护系统免受恶意请求和 RCE。
+- **Security (安全策略)**：利用 Sa-Token Firewall 实施入站请求的安全阻断与拦截，保护系统免受恶意请求 and RCE。
 - **API Responses (API 返回规范)**：所有 Controller 接口必须使用统一返回实体 `Result<T>` 进行包装。
 - **Generated Code Requirements (生成/编写代码规范)**：
   - 所有生成的代码必须符合当前项目的所有规范（包括通用类型的代码，非必要不允许在已经有了一个相同作用的方法时再次重新写一个方法）。
@@ -90,3 +90,7 @@ Aegis-Boot is a modern, high-performance full-stack development framework based 
   ```powershell
   .\mvnw clean test
   ```
+
+### 5. Commit & Pull Request Guidelines (提交与合并规范)
+- **提交与推送规范**：历史记录通常遵循 Conventional Commit 主题。使用 `feat`、`fix`、`refactor`、`test` 或 `docs`，并带有可选的 scope。提交 GitHub 时，默认直接提交并推送到 `master`，不创建分支或 Pull Request；除非用户明确要求，否则不得改变该流程。提交内容说明必须使用中文，例如：`fix(file): “完善文件删除一致性与审计”`。汇报时使用格式：`提交：9a8ed73 fix(file): “中文说明”`。
+- **Pull Request 规范**：如用户明确要求创建 Pull Request，PR 应说明变更、列出验证命令、关联 issue，并标注 schema、配置、API 或安全影响；接口变更还应包含请求/响应示例。
