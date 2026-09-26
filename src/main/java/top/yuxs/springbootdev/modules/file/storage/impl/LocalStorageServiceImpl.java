@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import top.yuxs.springbootdev.modules.file.service.FileUploadCompensationService;
 import top.yuxs.springbootdev.modules.file.config.FileProperties;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
@@ -19,9 +20,11 @@ import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.UUID;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
@@ -39,8 +42,12 @@ public class LocalStorageServiceImpl implements StorageService {
     @Autowired
     private FileProperties fileProperties;
 
+    @Autowired
+    private FileUploadCompensationService compensationService;
+
     @Override
     public StorageUploadResult upload(MultipartFile file, String path) {
+        String createdFilePath = null;
         try {
             String originalFilename = file.getOriginalFilename();
             String extension = "";
@@ -93,13 +100,20 @@ public class LocalStorageServiceImpl implements StorageService {
             }
             MessageDigest messageDigest = MessageDigest.getInstance("MD5");
             try (InputStream inputStream = file.getInputStream();
-                 DigestInputStream digestInputStream = new DigestInputStream(inputStream, messageDigest)) {
-                Files.copy(digestInputStream, targetPath);
+                 DigestInputStream digestInputStream = new DigestInputStream(inputStream, messageDigest);
+                 OutputStream outputStream = Files.newOutputStream(targetPath,
+                         StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                // 仅清理本次成功创建的文件，路径碰撞时不能删除已有文件。
+                createdFilePath = Paths.get(relativeDir, fileName).toString().replace("\\", "/");
+                digestInputStream.transferTo(outputStream);
             }
             String filePath = Paths.get(relativeDir, fileName).toString().replace("\\", "/");
             return new StorageUploadResult(filePath, "local", toHex(messageDigest.digest()));
         } catch (Exception e) {
             log.error("本地文件上传失败", e);
+            if (createdFilePath != null) {
+                compensationService.compensate(this, new StorageUploadResult(createdFilePath, "local", null));
+            }
             throw new BusinessException("文件上传失败");
         }
     }

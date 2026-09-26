@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import top.yuxs.springbootdev.core.db.dialect.DbDialect;
+import top.yuxs.springbootdev.core.db.dialect.DialectFactory;
+import top.yuxs.springbootdev.core.db.metadata.ColumnMetadata;
 
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +22,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 结构执行器：负责执行 SQL 并提供数据库元数据查询
+ * 结构执行器：负责基于数据库方言执行 SQL 并查询数据库元数据
  */
 @Slf4j
 @Component
@@ -27,25 +30,50 @@ import java.util.stream.Collectors;
 public class SchemaExecutor {
 
     private final JdbcTemplate jdbcTemplate;
+    private final DialectFactory dialectFactory;
+
+    public DbDialect getDialect() {
+        return dialectFactory.getDialect(jdbcTemplate);
+    }
 
     public boolean tableExists(String tableName) {
-        String sql = "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?";
+        DbDialect dialect = getDialect();
+        String sql = dialect.getTableExistsSql();
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class, tableName);
         return count != null && count > 0;
     }
 
-    public Map<String, top.yuxs.springbootdev.core.db.metadata.ColumnMetadata> getExistingColumnsInfo(String tableName) {
-        String sql = "SELECT COLUMN_NAME, COLUMN_TYPE, COLUMN_COMMENT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?";
-        Map<String, top.yuxs.springbootdev.core.db.metadata.ColumnMetadata> map = new HashMap<>();
+    /**
+     * 查询数据库中已有的表注释。
+     *
+     * @param tableName 表名
+     * @return 表注释；数据库返回空值时返回空字符串
+     */
+    public String getExistingTableComment(String tableName) {
+        DbDialect dialect = getDialect();
+        String comment = jdbcTemplate.queryForObject(dialect.getTableCommentSql(), String.class, tableName);
+        return comment == null ? "" : comment.trim();
+    }
+
+    public Map<String, ColumnMetadata> getExistingColumnsInfo(String tableName) {
+        DbDialect dialect = getDialect();
+        String sql = dialect.getColumnsInfoSql();
+        Map<String, ColumnMetadata> map = new HashMap<>();
         jdbcTemplate.query(sql, (rs) -> {
             String colName = rs.getString("COLUMN_NAME");
             String colType = rs.getString("COLUMN_TYPE");
             String colComment = rs.getString("COLUMN_COMMENT");
-            
-            top.yuxs.springbootdev.core.db.metadata.ColumnMetadata metadata = top.yuxs.springbootdev.core.db.metadata.ColumnMetadata.builder()
+            String colDefault = rs.getString("COLUMN_DEFAULT");
+            boolean primaryKey = rs.getBoolean("IS_PRIMARY_KEY");
+            boolean autoIncrement = rs.getBoolean("IS_AUTO_INCREMENT");
+
+            ColumnMetadata metadata = ColumnMetadata.builder()
                     .name(colName)
                     .type(colType)
                     .comment(colComment)
+                    .defaultValue(colDefault)
+                    .isPrimaryKey(primaryKey)
+                    .isAutoIncrement(autoIncrement)
                     .build();
             map.put(colName.toLowerCase(), metadata);
         }, tableName);
@@ -53,20 +81,24 @@ public class SchemaExecutor {
     }
 
     public Set<String> getExistingIndexNames(String tableName) {
-        String sql = "SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME != 'PRIMARY'";
+        DbDialect dialect = getDialect();
+        String sql = dialect.getIndexNamesSql();
         List<String> list = jdbcTemplate.queryForList(sql, String.class, tableName);
         return list.stream().map(String::toLowerCase).collect(Collectors.toSet());
     }
 
     public Set<String> getExistingForeignKeyNames(String tableName) {
-        String sql = "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY'";
+        DbDialect dialect = getDialect();
+        String sql = dialect.getForeignKeyNamesSql();
         List<String> list = jdbcTemplate.queryForList(sql, String.class, tableName);
         return list.stream().map(String::toLowerCase).collect(Collectors.toSet());
     }
 
     public boolean isTableEmpty(String tableName) {
         try {
-            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM `" + tableName + "`", Integer.class);
+            DbDialect dialect = getDialect();
+            String quotedTable = dialect.quoteIdentifier(tableName);
+            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + quotedTable, Integer.class);
             return count != null && count == 0;
         } catch (Exception e) {
             log.warn("检查表 {} 是否为空时出错: {}", tableName, e.getMessage());

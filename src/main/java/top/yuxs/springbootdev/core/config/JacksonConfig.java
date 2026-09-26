@@ -7,9 +7,9 @@
 
 package top.yuxs.springbootdev.core.config;
 
-import com.fasterxml.jackson.databind.Module;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+import tools.jackson.databind.JacksonModule;
+import tools.jackson.databind.module.SimpleModule;
+import tools.jackson.databind.ser.std.ToStringSerializer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,8 +25,11 @@ import java.math.BigInteger;
 @ConditionalOnProperty(prefix = "jackson", name = "long-to-string", havingValue = "true", matchIfMissing = false)
 public class JacksonConfig {
 
+    /**
+     * 注册到 Spring Boot 4 实际使用的 Jackson 3，统一保护响应中的大整数精度。
+     */
     @Bean
-    public Module jacksonModule() {
+    public JacksonModule jacksonModule() {
         SimpleModule module = new SimpleModule();
         // 将 Long 和 BigInteger 类型在序列化时自动转为 String 类型
         module.addSerializer(Long.class, ToStringSerializer.instance);

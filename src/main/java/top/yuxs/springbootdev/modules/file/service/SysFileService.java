@@ -43,4 +43,24 @@ public interface SysFileService extends IService<SysFile> {
      * @return 待删除文件
      */
     List<SysFile> listPendingPhysicalDeletes(int limit);
+
+    /**
+     * 查询包含逻辑删除状态的记录，仅用于生命周期编排。
+     */
+    SysFile getIncludingDeleted(Long id);
+
+    /**
+     * 清理待删除元数据，正常文件不受影响。
+     */
+    boolean completePhysicalDelete(Long id);
+
+    /**
+     * 延后失败任务的重试顺序。
+     */
+    void deferPhysicalDelete(Long id);
+
+    /**
+     * 独立事务保存上传回滚后的清理任务，复用现有物理删除补偿队列。
+     */
+    void saveUploadCleanup(SysFile file);
 }

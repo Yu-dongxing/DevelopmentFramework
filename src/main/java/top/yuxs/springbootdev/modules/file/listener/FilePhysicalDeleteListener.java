@@ -39,22 +39,35 @@ public class FilePhysicalDeleteListener {
     /**
      * 定时补偿未完成的物理删除任务。
      */
-    @Scheduled(fixedDelay = 60000)
+    @Scheduled(fixedDelay = 60000, initialDelay = 60000)
     public void retryPendingPhysicalDeletes() {
         for (SysFile sysFile : sysFileService.listPendingPhysicalDeletes(RETRY_BATCH_SIZE)) {
             deletePhysicalFile(sysFile);
         }
     }
 
+    /**
+     * 再次读取已提交状态，只处理待清理文件，重复通知和正常记录均不会触发误删。
+     */
     private void deletePhysicalFile(SysFile sysFile) {
         try {
-            StorageService storageService = storageFactory.getService(StorageType.valueOf(sysFile.getStorageType()));
-            storageService.delete(sysFile.getFilePath());
-            if (!sysFileService.physicalDeleteById(sysFile.getId())) {
+            SysFile pending = sysFileService.getIncludingDeleted(sysFile.getId());
+            if (pending == null || !Integer.valueOf(1).equals(pending.getIsDeleted())
+                    || !Integer.valueOf(1).equals(pending.getPhysicalDeleteStatus())) {
+                return;
+            }
+            StorageService storageService = storageFactory.getService(StorageType.valueOf(pending.getStorageType()));
+            storageService.delete(pending.getFilePath(), pending.getStorageBucket());
+            if (!sysFileService.completePhysicalDelete(pending.getId())) {
                 log.warn("物理文件已删除，但文件元数据不存在或已被其他任务清理，文件ID: {}", sysFile.getId());
             }
         } catch (Exception e) {
             log.error("物理文件删除失败，将在下次任务中重试，文件ID: {}，路径: {}", sysFile.getId(), sysFile.getFilePath(), e);
+            try {
+                sysFileService.deferPhysicalDelete(sysFile.getId());
+            } catch (Exception deferFailure) {
+                log.error("更新文件重试顺序失败，文件ID: {}", sysFile.getId(), deferFailure);
+            }
         }
     }
 }

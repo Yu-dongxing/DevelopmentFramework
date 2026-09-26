@@ -9,6 +9,7 @@ package top.yuxs.springbootdev.modules.file.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -22,6 +23,9 @@ public class FileWebMvcConfig implements WebMvcConfigurer {
 
     @Autowired
     private FileProperties fileProperties;
+
+    @Autowired
+    private LocalFileResourceResolver localFileResourceResolver;
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
@@ -54,6 +58,9 @@ public class FileWebMvcConfig implements WebMvcConfigurer {
         }
 
         registry.addResourceHandler(accessPath)
-                .addResourceLocations(resourceLocation);
+                .addResourceLocations(resourceLocation)
+                .setCacheControl(CacheControl.noStore())
+                .resourceChain(false)
+                .addResolver(localFileResourceResolver);
     }
 }

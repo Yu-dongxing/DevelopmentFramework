@@ -17,6 +17,7 @@ import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
 import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
+import top.yuxs.springbootdev.modules.file.service.FileUploadCompensationService;
 
 import java.io.InputStream;
 import java.security.DigestInputStream;
@@ -39,9 +40,13 @@ public class MinioStorageServiceImpl implements StorageService {
     @Autowired(required = false)
     private MinioClient minioClient;
 
+    @Autowired
+    private FileUploadCompensationService compensationService;
+
     @Override
     public StorageUploadResult upload(MultipartFile file, String path) {
         checkClientInitialized();
+        StorageUploadResult attemptedUpload = null;
 
         try {
             String originalFilename = file.getOriginalFilename();
@@ -66,6 +71,8 @@ public class MinioStorageServiceImpl implements StorageService {
             MessageDigest messageDigest = MessageDigest.getInstance("MD5");
             try (InputStream is = file.getInputStream();
                  DigestInputStream digestInputStream = new DigestInputStream(is, messageDigest)) {
+                // SDK 报错时服务端仍可能已经接收对象，保留本次唯一位置用于补偿。
+                attemptedUpload = new StorageUploadResult(objectKey, bucketName, null);
                 minioClient.putObject(
                         PutObjectArgs.builder()
                                 .bucket(bucketName)
@@ -80,16 +87,30 @@ public class MinioStorageServiceImpl implements StorageService {
             return new StorageUploadResult(objectKey, bucketName, toHex(messageDigest.digest()));
         } catch (Exception e) {
             log.error("MinIO 文件上传失败", e);
+            if (attemptedUpload != null) {
+                compensationService.compensate(this, attemptedUpload);
+            }
             throw new BusinessException("MinIO 文件上传失败: " + e.getMessage());
         }
     }
 
     @Override
     public void delete(String filePath) {
+        delete(filePath, fileProperties.getMinio().getBucketName());
+    }
+
+    /**
+     * 按历史桶删除对象，禁止回退到新的默认桶误删同名文件。
+     */
+    @Override
+    public void delete(String filePath, String storageBucket) {
         checkClientInitialized();
+        if (storageBucket == null || storageBucket.isBlank()) {
+            throw new BusinessException("文件缺少历史存储桶，拒绝物理删除");
+        }
 
         try {
-            String bucketName = fileProperties.getMinio().getBucketName();
+            String bucketName = storageBucket;
             minioClient.removeObject(
                     RemoveObjectArgs.builder()
                             .bucket(bucketName)
@@ -105,6 +126,17 @@ public class MinioStorageServiceImpl implements StorageService {
 
     @Override
     public String buildUrl(String filePath) {
+        return buildUrl(filePath, fileProperties.getMinio().getBucketName());
+    }
+
+    /**
+     * 使用上传时记录的桶构建地址。
+     */
+    @Override
+    public String buildUrl(String filePath, String storageBucket) {
+        if (storageBucket == null || storageBucket.isBlank()) {
+            throw new BusinessException("文件缺少历史存储桶，无法构建访问地址");
+        }
         FileProperties.MinioConfig minioConfig = fileProperties.getMinio();
         String baseUrl = minioConfig.getDomain();
         if (baseUrl == null || baseUrl.isEmpty()) {
@@ -116,7 +148,7 @@ public class MinioStorageServiceImpl implements StorageService {
         }
 
         // 默认公开访问 URL 拼装格式: http://ip:port/bucketName/objectKey
-        return baseUrl + minioConfig.getBucketName() + "/" + filePath;
+        return baseUrl + storageBucket + "/" + filePath;
     }
 
     @Override
@@ -126,7 +158,7 @@ public class MinioStorageServiceImpl implements StorageService {
 
     private void checkClientInitialized() {
         if (minioClient == null) {
-            throw new BusinessException("MinIO 客户端未成功初始化，请检查配置文件中的 file.active 是否为 MINIO 以及相关参数是否正确！");
+            throw new BusinessException("MinIO 客户端未成功初始化，请检查历史存储的端点和凭据配置！");
         }
     }
 

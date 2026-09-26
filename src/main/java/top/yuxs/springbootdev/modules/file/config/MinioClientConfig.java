@@ -20,12 +20,15 @@ import org.springframework.context.annotation.Configuration;
  * @since 2026/08/09
  */
 @Configuration
-@ConditionalOnProperty(prefix = "file", name = "active", havingValue = "MINIO")
+@ConditionalOnProperty(prefix = "file.minio", name = {"endpoint", "access-key", "secret-key"})
 public class MinioClientConfig {
 
     @Autowired
     private FileProperties fileProperties;
 
+    /**
+     * 按端点和凭据创建客户端，使非当前上传类型的历史文件仍可清理。
+     */
     @Bean
     public MinioClient minioClient() {
         FileProperties.MinioConfig config = fileProperties.getMinio();

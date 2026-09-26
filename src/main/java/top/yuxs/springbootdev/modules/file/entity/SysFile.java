@@ -26,7 +26,7 @@ import java.util.Map;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@TableName("sys_file")
+@TableName(value = "sys_file", autoResultMap = true)
 @TableComment("文件信息表")
 @Index(name = "idx_sys_file_biz_id", columns = {"biz_id"})
 @Index(name = "idx_sys_file_md5", columns = {"md5"})
@@ -167,7 +167,7 @@ public class SysFile extends BaseEntity {
      * 扩展元数据
      */
     @TableField(value = "metadata", typeHandler = JacksonTypeHandler.class)
-    @ColumnType("json")
+    @ColumnType("text")
     @ColumnComment("扩展元数据")
     private Map<String, Object> metadata;
 }

@@ -21,12 +21,15 @@ import org.springframework.context.annotation.Configuration;
  * @since 2026/08/09
  */
 @Configuration
-@ConditionalOnProperty(prefix = "file", name = "active", havingValue = "ALIYUN_OSS")
+@ConditionalOnProperty(prefix = "file.aliyun", name = {"endpoint", "access-key", "secret-key"})
 public class AliyunOssClientConfig {
 
     @Autowired
     private FileProperties fileProperties;
 
+    /**
+     * 配置仍存在时保留历史存储客户端，切换上传类型不影响旧文件清理。
+     */
     @Bean(destroyMethod = "shutdown")
     public OSS aliyunOssClient() {
         FileProperties.AliyunConfig config = fileProperties.getAliyun();

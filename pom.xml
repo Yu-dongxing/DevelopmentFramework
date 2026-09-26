@@ -130,6 +130,20 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- PostgreSQL 驱动：连接 PostgreSQL 数据库 (版本由 Spring Boot Parent 管理) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Oracle 驱动：连接 Oracle 12c 及以上版本数据库 (版本由 Spring Boot Parent 管理) -->
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- MyBatis-Plus 启动器：增强版 MyBatis，简化 CRUD 操作 -->
         <!-- 注：此处移除了老的 mybatis-spring-boot-starter，因为 MP 已包含，避免冲突 -->
         <dependency>
@@ -267,11 +281,11 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- H2 内存数据库，支持测试隔离 -->
+        <!-- H2 数据库驱动：同时支持生产运行与测试隔离 -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- ==================== 修复 Sa-Token 启动异常：补齐 Jackson 核心依赖 ==================== -->

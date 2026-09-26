@@ -20,11 +20,13 @@ import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
 import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
+import top.yuxs.springbootdev.modules.file.service.FileUploadCompensationService;
 
 import java.io.InputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.UUID;
+import java.util.Objects;
 
 /**
  * 阿里云 OSS 存储服务完整实现
@@ -42,9 +44,13 @@ public class AliyunStorageServiceImpl implements StorageService {
     @Autowired(required = false)
     private OSS ossClient;
 
+    @Autowired
+    private FileUploadCompensationService compensationService;
+
     @Override
     public StorageUploadResult upload(MultipartFile file, String path) {
         checkClientInitialized();
+        StorageUploadResult attemptedUpload = null;
 
         try {
             String originalFilename = file.getOriginalFilename();
@@ -74,6 +80,8 @@ public class AliyunStorageServiceImpl implements StorageService {
             MessageDigest messageDigest = MessageDigest.getInstance("MD5");
             try (InputStream is = file.getInputStream();
                  DigestInputStream digestInputStream = new DigestInputStream(is, messageDigest)) {
+                // 超时不代表对象未落盘，失败时按本次生成的唯一 Key 补偿。
+                attemptedUpload = new StorageUploadResult(objectKey, bucketName, null);
                 ossClient.putObject(new PutObjectRequest(bucketName, objectKey, digestInputStream, metadata));
             }
 
@@ -81,16 +89,30 @@ public class AliyunStorageServiceImpl implements StorageService {
             return new StorageUploadResult(objectKey, bucketName, toHex(messageDigest.digest()));
         } catch (Exception e) {
             log.error("阿里云 OSS 文件上传失败", e);
+            if (attemptedUpload != null) {
+                compensationService.compensate(this, attemptedUpload);
+            }
             throw new BusinessException("阿里云 OSS 文件上传失败: " + e.getMessage());
         }
     }
 
     @Override
     public void delete(String filePath) {
+        delete(filePath, fileProperties.getAliyun().getBucketName());
+    }
+
+    /**
+     * 使用历史桶删除对象；缺失桶信息时拒绝猜测删除位置。
+     */
+    @Override
+    public void delete(String filePath, String storageBucket) {
         checkClientInitialized();
+        if (storageBucket == null || storageBucket.isBlank()) {
+            throw new BusinessException("文件缺少历史存储桶，拒绝物理删除");
+        }
 
         try {
-            String bucketName = fileProperties.getAliyun().getBucketName();
+            String bucketName = storageBucket;
             ossClient.deleteObject(bucketName, filePath);
             log.info("阿里云 OSS 物理文件删除成功: {}/{}", bucketName, filePath);
         } catch (Exception e) {
@@ -101,12 +123,23 @@ public class AliyunStorageServiceImpl implements StorageService {
 
     @Override
     public String buildUrl(String filePath) {
+        return buildUrl(filePath, fileProperties.getAliyun().getBucketName());
+    }
+
+    /**
+     * 历史桶不复用当前桶绑定的 CDN 域名，回退到该桶的标准地址。
+     */
+    @Override
+    public String buildUrl(String filePath, String storageBucket) {
         FileProperties.AliyunConfig aliyunConfig = fileProperties.getAliyun();
+        if (storageBucket == null || storageBucket.isBlank()) {
+            throw new BusinessException("文件缺少历史存储桶，无法构建访问地址");
+        }
         String baseUrl = aliyunConfig.getDomain();
-        if (baseUrl == null || baseUrl.isEmpty()) {
+        if (baseUrl == null || baseUrl.isEmpty() || !Objects.equals(storageBucket, aliyunConfig.getBucketName())) {
             // 如果未配置专有加速或 CDN 域名，降级使用官方公网访问格式: https://bucketName.endpoint/objectKey
             String endpoint = aliyunConfig.getEndpoint().replace("http://", "").replace("https://", "");
-            baseUrl = "https://" + aliyunConfig.getBucketName() + "." + endpoint;
+            baseUrl = "https://" + storageBucket + "." + endpoint;
         }
 
         if (!baseUrl.endsWith("/")) {
@@ -123,7 +156,7 @@ public class AliyunStorageServiceImpl implements StorageService {
 
     private void checkClientInitialized() {
         if (ossClient == null) {
-            throw new BusinessException("阿里云 OSS 客户端未成功初始化，请检查配置文件中的 file.active 是否为 ALIYUN_OSS 以及相关参数是否配置正确！");
+            throw new BusinessException("阿里云 OSS 客户端未成功初始化，请检查历史存储的端点和凭据配置！");
         }
     }
 

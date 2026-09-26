@@ -36,4 +36,9 @@ public class AegisDbProperties {
      * 是否初始化默认数据
      */
     private boolean initData = true;
+
+    /**
+     * 显式指定数据库方言类型（如 MYSQL, POSTGRESQL, ORACLE, H2）。若不配置，系统将根据 DataSource 自动识别。
+     */
+    private String dialect;
 }

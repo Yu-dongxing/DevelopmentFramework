@@ -35,12 +35,26 @@ public interface StorageService {
     void delete(String filePath);
 
     /**
+     * 按上传时记录的存储桶删除；本地存储不区分桶，复用原有路径校验。
+     */
+    default void delete(String filePath, String storageBucket) {
+        delete(filePath);
+    }
+
+    /**
      * 构建访问URL
      *
      * @param filePath 相对路径/对象Key
      * @return 完整访问URL
      */
     String buildUrl(String filePath);
+
+    /**
+     * 按历史存储桶构建地址，避免切换默认桶后访问错误对象。
+     */
+    default String buildUrl(String filePath, String storageBucket) {
+        return buildUrl(filePath);
+    }
 
     /**
      * 获取存储类型

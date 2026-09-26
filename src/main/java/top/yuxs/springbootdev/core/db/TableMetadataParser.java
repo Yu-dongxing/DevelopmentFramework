@@ -156,7 +156,8 @@ public class TableMetadataParser {
         if (fieldType.equals(Double.class) || fieldType.equals(double.class)) return "double";
         if (fieldType.equals(Boolean.class) || fieldType.equals(boolean.class)) return "tinyint(1)";
         if (fieldType.equals(BigDecimal.class)) return "decimal(19,2)";
-        if (Collection.class.isAssignableFrom(fieldType) || Map.class.isAssignableFrom(fieldType)) return "json";
+        // 结构化字段统一保存为 JSON 文本，避免 PostgreSQL 原生 JSON 与通用 JDBC 类型处理器不兼容。
+        if (Collection.class.isAssignableFrom(fieldType) || Map.class.isAssignableFrom(fieldType)) return "text";
         return "varchar(255)";
     }
 
