@@ -33,6 +33,11 @@ public class AegisDbProperties {
     private String basePackage = "top.yuxs.springbootdev.modules";
 
     /**
+     * 是否明确允许扫描不到实体；默认拒绝，避免错误包名导致虚假初始化成功。
+     */
+    private boolean allowEmptyScan = false;
+
+    /**
      * 是否初始化默认数据
      */
     private boolean initData = true;

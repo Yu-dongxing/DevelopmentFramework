@@ -13,6 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.StringUtils;
 import top.yuxs.springbootdev.core.db.config.AegisDbProperties;
 
 import java.util.ArrayList;
@@ -35,6 +37,9 @@ public class EntityScanner {
      */
     public List<Class<?>> scanEntityClasses() {
         String basePackage = properties.getBasePackage();
+        if (!StringUtils.hasText(basePackage)) {
+            throw new IllegalStateException("数据库实体扫描包不能为空");
+        }
         log.info("开始扫描实体类，基础包: {}", basePackage);
         List<Class<?>> entityClasses = new ArrayList<>();
         ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
@@ -42,11 +47,14 @@ public class EntityScanner {
         
         for (var beanDef : scanner.findCandidateComponents(basePackage)) {
             try {
-                Class<?> entityClass = Class.forName(beanDef.getBeanClassName());
+                Class<?> entityClass = ClassUtils.forName(beanDef.getBeanClassName(), ClassUtils.getDefaultClassLoader());
                 entityClasses.add(entityClass);
-            } catch (ClassNotFoundException e) {
-                log.error("未找到类: {}", beanDef.getBeanClassName(), e);
+            } catch (ClassNotFoundException | LinkageError e) {
+                throw new IllegalStateException("数据库实体加载失败: " + beanDef.getBeanClassName(), e);
             }
+        }
+        if (entityClasses.isEmpty() && !properties.isAllowEmptyScan()) {
+            throw new IllegalStateException("数据库实体扫描结果为空，请检查 db.init.base-package: " + basePackage);
         }
         return entityClasses;
     }

@@ -94,16 +94,14 @@ public class SchemaExecutor {
         return list.stream().map(String::toLowerCase).collect(Collectors.toSet());
     }
 
+    /**
+     * 检查表是否为空，查询失败时中止初始化，避免静默跳过默认数据。
+     */
     public boolean isTableEmpty(String tableName) {
-        try {
-            DbDialect dialect = getDialect();
-            String quotedTable = dialect.quoteIdentifier(tableName);
-            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + quotedTable, Integer.class);
-            return count != null && count == 0;
-        } catch (Exception e) {
-            log.warn("检查表 {} 是否为空时出错: {}", tableName, e.getMessage());
-            return false;
-        }
+        DbDialect dialect = getDialect();
+        String quotedTable = dialect.quoteIdentifier(tableName);
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + quotedTable, Integer.class);
+        return count != null && count == 0;
     }
 
     public void execute(String sql) {
