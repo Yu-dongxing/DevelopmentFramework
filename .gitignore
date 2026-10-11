@@ -1724,3 +1724,4 @@ build/
 /.m2repo/tools/jackson/jackson-bom/3.1.0/jackson-bom-3.1.0.pom
 /.m2repo/tools/jackson/jackson-bom/3.1.0/jackson-bom-3.1.0.pom.sha1
 /GEMINI.md
+/docs/
