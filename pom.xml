@@ -55,9 +55,42 @@
         <bouncycastle.version>1.80</bouncycastle.version>
         <!-- Disruptor 版本  -->
         <disruptor.version>3.4.4</disruptor.version>
+        <!-- RustFS 使用标准 S3 SDK，统一锁定所有 AWS 模块版本。 -->
+        <aws-sdk.version>2.55.14</aws-sdk.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
+        <!-- RustFS 同步 S3 客户端，明确使用 JDK URLConnection HTTP 实现。 -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache5-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+        </dependency>
         <!-- ==================== Spring Boot 核心组件 ==================== -->
 
         <!-- Spring Boot 核心启动器：排除默认的 Logback 日志，为了后面引入 Log4j2 -->

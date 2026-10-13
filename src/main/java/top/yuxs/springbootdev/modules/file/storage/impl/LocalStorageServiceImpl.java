@@ -25,7 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.UUID;
+import top.yuxs.springbootdev.modules.file.storage.StorageFileSupport;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 
@@ -50,10 +50,7 @@ public class LocalStorageServiceImpl implements StorageService {
         String createdFilePath = null;
         try {
             String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
+            String extension = StorageFileSupport.extension(originalFilename);
 
             // 后缀黑名单校验 (仅在配置为本地存储时校验，防范 RCE 和 存储型 XSS)
             String cleanExt = extension.startsWith(".") ? extension.substring(1) : extension;
@@ -70,16 +67,11 @@ public class LocalStorageServiceImpl implements StorageService {
                 }
             }
 
-            String fileName = UUID.randomUUID().toString() + extension;
-            
-            // 获取当前年月
-            java.time.LocalDate now = java.time.LocalDate.now();
-            String year = String.valueOf(now.getYear());
-            String month = String.format("%02d", now.getMonthValue());
-            
-            // 构造完整的存储相对路径: path/yyyy/MM
-            String relativeDir = Paths.get(path, year, month).toString().replace("\\", "/");
-            
+            String objectKey = StorageFileSupport.objectKey(path, originalFilename);
+            int separator = objectKey.lastIndexOf('/');
+            String fileName = objectKey.substring(separator + 1);
+            String relativeDir = objectKey.substring(0, separator);
+
             // 构造物理路径
             String uploadPath = fileProperties.getLocal().getUploadPath();
             Path rootPath = Paths.get(uploadPath).toAbsolutePath().normalize();
@@ -108,7 +100,7 @@ public class LocalStorageServiceImpl implements StorageService {
                 digestInputStream.transferTo(outputStream);
             }
             String filePath = Paths.get(relativeDir, fileName).toString().replace("\\", "/");
-            return new StorageUploadResult(filePath, "local", toHex(messageDigest.digest()));
+            return new StorageUploadResult(filePath, "local", StorageFileSupport.digestHex(messageDigest.digest()));
         } catch (Exception e) {
             log.error("本地文件上传失败", e);
             if (createdFilePath != null) {
@@ -206,14 +198,4 @@ public class LocalStorageServiceImpl implements StorageService {
         return blacklist.contains(extension.toLowerCase());
     }
 
-    /**
-     * 将摘要字节转换为小写十六进制字符串。
-     */
-    private String toHex(byte[] bytes) {
-        StringBuilder builder = new StringBuilder(bytes.length * 2);
-        for (byte value : bytes) {
-            builder.append(String.format("%02x", value));
-        }
-        return builder.toString();
-    }
 }

@@ -57,6 +57,13 @@ public interface StorageService {
     }
 
     /**
+     * 是否仅提供临时访问地址；临时地址不得作为持久化文件位置。
+     */
+    default boolean usesTemporaryUrl() {
+        return false;
+    }
+
+    /**
      * 获取存储类型
      *
      * @return 存储类型

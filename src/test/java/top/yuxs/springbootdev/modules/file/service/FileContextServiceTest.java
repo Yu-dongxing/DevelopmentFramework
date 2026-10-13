@@ -1,6 +1,8 @@
 package top.yuxs.springbootdev.modules.file.service;
 
 import cn.dev33.satoken.context.SaTokenContextForThreadLocalStaff;
+import cn.dev33.satoken.stp.StpUtil;
+import org.mockito.MockedStatic;
 import cn.dev33.satoken.servlet.model.SaRequestForServlet;
 import cn.dev33.satoken.servlet.model.SaResponseForServlet;
 import cn.dev33.satoken.servlet.model.SaStorageForServlet;
@@ -45,6 +47,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -235,5 +238,75 @@ class FileContextServiceTest {
         doReturn(false).when(fileService).removeById(file.getId());
         assertThrows(BusinessException.class, () -> contextService.delete(file.getId(), false));
         assertNotNull(fileService.getById(file.getId()));
+    }
+
+    /**
+     * RustFS 私有上传提交时不签名、不持久化 URL，响应签名失败也不清理成功对象。
+     */
+    @Test
+    void shouldPersistPrivateLocationWithoutTemporaryUrl() {
+        when(storage.getType()).thenReturn(StorageType.RUSTFS);
+        when(storage.usesTemporaryUrl()).thenReturn(true);
+        when(storageFactory.getService(StorageType.RUSTFS)).thenReturn(storage);
+        try (MockedStatic<StpUtil> token = mockStatic(StpUtil.class)) {
+            token.when(StpUtil::isLogin).thenReturn(true);
+            token.when(StpUtil::getLoginIdAsLong).thenReturn(10L);
+            token.when(StpUtil::getLoginId).thenReturn(10L);
+            SysFile uploaded = contextService.upload(multipartFile, null, null, "test");
+            assertNull(fileService.getById(uploaded.getId()).getFileUrl());
+            verify(storage, never()).buildUrl(anyString(), anyString());
+            assertNotNull(contextService.prepareUploadResponse(uploaded).getFileUrl());
+            assertNull(uploaded.getFileUrl());
+            when(storage.buildUrl(filePath, "old-bucket")).thenThrow(new IllegalStateException("模拟签名失败"));
+            assertNull(contextService.prepareUploadResponse(uploaded).getFileUrl());
+            assertNotNull(fileService.getById(uploaded.getId()));
+            verify(storage, never()).delete(anyString(), anyString());
+        }
+    }
+
+    /**
+     * 不同用户不能签发私有链接，也不能改变逻辑或物理删除状态。
+     */
+    @Test
+    void shouldDenyPrivateAccessBeforeSigningOrMutation() {
+        when(storage.getType()).thenReturn(StorageType.RUSTFS);
+        when(storage.usesTemporaryUrl()).thenReturn(true);
+        when(storageFactory.getService(StorageType.RUSTFS)).thenReturn(storage);
+        try (MockedStatic<StpUtil> token = mockStatic(StpUtil.class)) {
+            token.when(StpUtil::isLogin).thenReturn(true);
+            token.when(StpUtil::getLoginIdAsLong).thenReturn(10L);
+            token.when(StpUtil::getLoginId).thenReturn(10L);
+            SysFile uploaded = contextService.upload(multipartFile, null, null, "test");
+            token.when(StpUtil::getLoginIdAsLong).thenReturn(20L);
+            assertThrows(BusinessException.class, () -> contextService.prepareResponse(uploaded));
+            assertThrows(BusinessException.class, () -> contextService.delete(uploaded.getId(), true));
+            assertThrows(BusinessException.class, () -> contextService.delete(uploaded.getId(), false));
+            verify(storage, never()).buildUrl(anyString(), anyString());
+            assertEquals(0, fileService.getIncludingDeleted(uploaded.getId()).getIsDeleted());
+            assertEquals(0, fileService.getIncludingDeleted(uploaded.getId()).getPhysicalDeleteStatus());
+        }
+    }
+
+    /**
+     * RustFS 数据库回滚仍使用历史桶补偿，清理失败仍持久化待删除任务。
+     */
+    @Test
+    void shouldCompensatePrivateRollbackUsingHistoricalLocation() {
+        when(storage.getType()).thenReturn(StorageType.RUSTFS);
+        when(storage.usesTemporaryUrl()).thenReturn(true);
+        doThrow(new IllegalStateException("模拟 RustFS 不可用")).when(storage).delete(filePath, "old-bucket");
+        try (MockedStatic<StpUtil> token = mockStatic(StpUtil.class)) {
+            token.when(StpUtil::isLogin).thenReturn(true);
+            token.when(StpUtil::getLoginIdAsLong).thenReturn(10L);
+            token.when(StpUtil::getLoginId).thenReturn(10L);
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                contextService.upload(multipartFile, null, null, "test");
+                status.setRollbackOnly();
+            });
+            SysFile pending = fileService.listPendingPhysicalDeletes(10).getFirst();
+            assertEquals("RUSTFS", pending.getStorageType());
+            assertEquals("old-bucket", pending.getStorageBucket());
+            assertEquals(filePath, pending.getFilePath());
+        }
     }
 }

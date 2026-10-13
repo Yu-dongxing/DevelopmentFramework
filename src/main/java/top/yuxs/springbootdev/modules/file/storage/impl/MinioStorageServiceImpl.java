@@ -22,7 +22,7 @@ import top.yuxs.springbootdev.modules.file.service.FileUploadCompensationService
 import java.io.InputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
-import java.util.UUID;
+import top.yuxs.springbootdev.modules.file.storage.StorageFileSupport;
 
 /**
  * MinIO 存储服务最新 SDK 完整实现
@@ -49,18 +49,7 @@ public class MinioStorageServiceImpl implements StorageService {
         StorageUploadResult attemptedUpload = null;
 
         try {
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String fileName = UUID.randomUUID().toString() + extension;
-
-            // 构造上传的 Object Key (例: default/2026/08/xxx.jpg)
-            java.time.LocalDate now = java.time.LocalDate.now();
-            String year = String.valueOf(now.getYear());
-            String month = String.format("%02d", now.getMonthValue());
-            String objectKey = (path + "/" + year + "/" + month + "/" + fileName).replace("\\", "/").replaceAll("/+", "/");
+            String objectKey = StorageFileSupport.objectKey(path, file.getOriginalFilename());
 
             String bucketName = fileProperties.getMinio().getBucketName();
 
@@ -84,7 +73,7 @@ public class MinioStorageServiceImpl implements StorageService {
             }
 
             log.info("MinIO 文件上传成功: {}/{}", bucketName, objectKey);
-            return new StorageUploadResult(objectKey, bucketName, toHex(messageDigest.digest()));
+            return new StorageUploadResult(objectKey, bucketName, StorageFileSupport.digestHex(messageDigest.digest()));
         } catch (Exception e) {
             log.error("MinIO 文件上传失败", e);
             if (attemptedUpload != null) {
@@ -193,14 +182,4 @@ public class MinioStorageServiceImpl implements StorageService {
         }
     }
 
-    /**
-     * 将摘要字节转换为小写十六进制字符串。
-     */
-    private String toHex(byte[] bytes) {
-        StringBuilder builder = new StringBuilder(bytes.length * 2);
-        for (byte value : bytes) {
-            builder.append(String.format("%02x", value));
-        }
-        return builder.toString();
-    }
 }

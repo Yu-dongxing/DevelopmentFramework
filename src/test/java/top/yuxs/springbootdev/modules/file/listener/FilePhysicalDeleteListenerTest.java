@@ -2,6 +2,8 @@ package top.yuxs.springbootdev.modules.file.listener;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import top.yuxs.springbootdev.modules.file.entity.SysFile;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import top.yuxs.springbootdev.modules.file.event.FilePhysicalDeleteEvent;
@@ -52,8 +54,11 @@ class FilePhysicalDeleteListenerTest {
     /**
      * 先删除历史对象，再清理待删除元数据。
      */
-    @Test
-    void shouldDeleteHistoricalObject() {
+    @ParameterizedTest
+    @EnumSource(value = StorageType.class, names = {"MINIO", "RUSTFS"})
+    void shouldDeleteHistoricalObject(StorageType type) {
+        pending.setStorageType(type.name());
+        when(factory.getService(type)).thenReturn(storage);
         when(fileService.completePhysicalDelete(1L)).thenReturn(true);
         listener.onFilePhysicalDelete(new FilePhysicalDeleteEvent(this, pending));
         verify(storage).delete("old.txt", "historical-bucket");

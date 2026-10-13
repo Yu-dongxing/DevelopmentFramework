@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import top.yuxs.springbootdev.core.common.Result;
+import top.yuxs.springbootdev.core.annotation.AegisLog;
 import top.yuxs.springbootdev.modules.file.config.FileProperties;
 import top.yuxs.springbootdev.modules.file.entity.SysFile;
 import top.yuxs.springbootdev.modules.file.service.FileContextService;
@@ -49,25 +50,23 @@ public class FileController {
      * @return 文件信息
      */
     @PostMapping("/upload")
+    @AegisLog(isSaveResponseData = false)
     public Result<SysFile> upload(@RequestParam("file") MultipartFile file,
                                  @RequestParam(value = "bizId", required = false) String bizId,
                                  @RequestParam(value = "bizType", required = false) String bizType,
                                  @RequestParam(value = "path", defaultValue = "default") String path) {
         SysFile sysFile = fileContextService.upload(file, bizId, bizType, path);
-        return Result.success(sysFile);
+        return Result.success(fileContextService.prepareUploadResponse(sysFile));
     }
 
     /**
      * 获取文件详情
      */
     @GetMapping("/{id}")
+    @AegisLog(isSaveResponseData = false)
     public Result<SysFile> getInfo(@PathVariable("id") Long id) {
         SysFile sysFile = sysFileService.getById(id);
-        if (sysFile != null) {
-            // 返回实时构建的 URL，确保环境迁移后依然可用
-            sysFile.setFileUrl(fileContextService.buildUrl(sysFile));
-        }
-        return Result.success(sysFile);
+        return Result.success(fileContextService.prepareResponse(sysFile));
     }
 
     /**

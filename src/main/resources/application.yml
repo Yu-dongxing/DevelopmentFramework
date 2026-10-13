@@ -17,6 +17,11 @@ server:
       max: 200
 
 spring:
+  servlet:
+    multipart:
+      # 网关和存储上限需同步设置；请求上限额外预留表单开销。
+      max-file-size: ${FILE_MAX_FILE_SIZE:100MB}
+      max-request-size: ${FILE_MAX_REQUEST_SIZE:110MB}
   application:
     name: springbootDev
 
@@ -147,8 +152,27 @@ db:
 
 # 自定义文件上传配置
 file:
-  # 必须与 StorageType 枚举完全一致: LOCAL, ALIYUN_OSS
-  active: LOCAL
+  # 必须与 StorageType 枚举完全一致: LOCAL, ALIYUN_OSS, MINIO, RUSTFS
+  active: ${FILE_STORAGE_ACTIVE:LOCAL}
+
+  rustfs:
+    # 切换上传类型后需保留启用状态，以访问和清理历史 RustFS 文件。
+    enabled: ${FILE_RUSTFS_ENABLED:false}
+    endpoint: ${FILE_RUSTFS_ENDPOINT:}
+    public-endpoint: ${FILE_RUSTFS_PUBLIC_ENDPOINT:}
+    region: ${FILE_RUSTFS_REGION:us-east-1}
+    bucket-name: ${FILE_RUSTFS_BUCKET:springbootdev}
+    access-key: ${FILE_RUSTFS_ACCESS_KEY:}
+    secret-key: ${FILE_RUSTFS_SECRET_KEY:}
+    path-style-access: ${FILE_RUSTFS_PATH_STYLE:true}
+    access-mode: ${FILE_RUSTFS_ACCESS_MODE:PRIVATE}
+    presigned-url-expire-seconds: ${FILE_RUSTFS_URL_EXPIRE_SECONDS:900}
+    auto-create-bucket: ${FILE_RUSTFS_AUTO_CREATE_BUCKET:false}
+    connection-timeout: 5s
+    attempt-timeout: 60s
+    call-timeout: 180s
+    max-retries: 2
+    max-upload-bytes: ${FILE_RUSTFS_MAX_UPLOAD_BYTES:104857600}
 
   local:
     domain: http://localhost:8080

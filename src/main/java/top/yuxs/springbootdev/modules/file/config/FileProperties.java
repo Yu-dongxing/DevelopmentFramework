@@ -8,6 +8,7 @@
 package top.yuxs.springbootdev.modules.file.config;
 
 import lombok.Data;
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
@@ -42,6 +43,22 @@ public class FileProperties {
      * MinIO 存储配置
      */
     private MinioConfig minio = new MinioConfig();
+
+    /** RustFS 独立配置，不随当前上传类型切换而销毁历史客户端。 */
+    private RustfsConfig rustfs = new RustfsConfig();
+
+    /**
+     * 校验当前选择与显式启用状态，完整配置在启用时校验。
+     */
+    @PostConstruct
+    public void validateRustfs() {
+        if (active == StorageType.RUSTFS && !rustfs.isEnabled()) {
+            throw new IllegalArgumentException("选择 RustFS 存储时必须启用 file.rustfs.enabled");
+        }
+        if (rustfs.isEnabled()) {
+            rustfs.validate();
+        }
+    }
 
     @Data
     public static class LocalConfig {

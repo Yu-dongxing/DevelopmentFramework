@@ -30,5 +30,10 @@ public enum StorageType {
     /**
      * MinIO
      */
-    MINIO;
+    MINIO,
+
+    /**
+     * RustFS 标准 S3 对象存储。
+     */
+    RUSTFS;
 }

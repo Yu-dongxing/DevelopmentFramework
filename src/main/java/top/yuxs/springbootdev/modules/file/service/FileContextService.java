@@ -11,6 +11,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.BeanUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ import top.yuxs.springbootdev.modules.file.event.FilePhysicalDeleteEvent;
 import top.yuxs.springbootdev.modules.file.storage.StorageFactory;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
 import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
+import top.yuxs.springbootdev.modules.file.storage.StorageFileSupport;
 import top.yuxs.springbootdev.core.utils.IpUtils;
 
 
@@ -51,6 +53,9 @@ public class FileContextService {
 
     @Autowired
     private FileUploadCompensationService compensationService;
+
+    @Autowired
+    private FileAccessService fileAccessService;
 
     /**
      * 上传文件
@@ -78,6 +83,7 @@ public class FileContextService {
         }
         String storagePath = path == null ? "default" : path;
         StorageService storageService = storageFactory.getActiveService();
+        fileAccessService.checkUpload(storageService.getType());
 
         // 存储层在写入过程中计算摘要；返回结果记录本次实际使用的桶和路径。
         StorageUploadResult uploadResult = storageService.upload(file, storagePath);
@@ -97,7 +103,8 @@ public class FileContextService {
                 }
             }
         });
-        String fileUrl = storageService.buildUrl(uploadResult.filePath(), uploadResult.storageBucket());
+        String fileUrl = storageService.usesTemporaryUrl() ? null
+                : storageService.buildUrl(uploadResult.filePath(), uploadResult.storageBucket());
 
         // 构造落库实体，任何异常均由上面的事务回调统一补偿。
         SysFile sysFile = new SysFile();
@@ -105,7 +112,7 @@ public class FileContextService {
         sysFile.setBizType(bizType);
         sysFile.setOriginalName(file.getOriginalFilename());
         sysFile.setFileName(uploadResult.filePath().substring(uploadResult.filePath().lastIndexOf("/") + 1));
-        sysFile.setFileExt(getFileExtension(file.getOriginalFilename()));
+        sysFile.setFileExt(StorageFileSupport.extension(file.getOriginalFilename()));
         sysFile.setFileSize(file.getSize());
         sysFile.setContentType(file.getContentType());
         sysFile.setMd5(uploadResult.md5());
@@ -150,6 +157,7 @@ public class FileContextService {
         if (sysFile == null) {
             return;
         }
+        fileAccessService.checkDelete(sysFile);
 
         if (physical) {
             if (!sysFileService.markPhysicalDeletePending(id)) {
@@ -181,18 +189,38 @@ public class FileContextService {
         if (sysFile == null) {
             return null;
         }
+        fileAccessService.checkRead(sysFile);
         StorageService storageService = storageFactory.getService(StorageType.valueOf(sysFile.getStorageType()));
         return storageService.buildUrl(sysFile.getFilePath(), sysFile.getStorageBucket());
     }
 
     /**
-     * 提取原始文件名中的扩展名。
+     * 构建独立响应副本，临时签名不能污染实体或事件中的持久化快照。
      */
-    private String getFileExtension(String fileName) {
-        if (fileName != null && fileName.contains(".")) {
-            return fileName.substring(fileName.lastIndexOf("."));
+    public SysFile prepareResponse(SysFile file) {
+        if (file == null) {
+            return null;
         }
-        return "";
+        SysFile response = new SysFile();
+        BeanUtils.copyProperties(file, response);
+        response.setFileUrl(buildUrl(file));
+        return response;
+    }
+
+    /**
+     * 上传事务提交后再生成地址；签名失败返回已提交的文件 ID，客户端可重取详情。
+     */
+    public SysFile prepareUploadResponse(SysFile file) {
+        fileAccessService.checkRead(file);
+        try {
+            return prepareResponse(file);
+        } catch (Exception e) {
+            log.warn("文件已提交但访问地址生成失败，可通过文件详情重试，文件ID: {}", file.getId(), e);
+            SysFile response = new SysFile();
+            BeanUtils.copyProperties(file, response);
+            response.setFileUrl(null);
+            return response;
+        }
     }
 
     /**
