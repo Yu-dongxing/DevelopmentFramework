@@ -27,6 +27,8 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import top.yuxs.springbootdev.modules.file.storage.StorageFileSupport;
 import java.util.Objects;
+import java.util.Date;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 
 /**
  * 阿里云 OSS 存储服务完整实现
@@ -58,7 +60,7 @@ public class AliyunStorageServiceImpl implements StorageService {
             String bucketName = fileProperties.getAliyun().getBucketName();
 
             // 自动检查并创建存储桶，设置公共读 ACL
-            ensureBucketExists(bucketName);
+            ensureBucketExists(bucketName, getAccessMode());
 
             // 配置对象元数据，由于流无法回溯，显式设置 Content-Length 提升传输稳定性
             ObjectMetadata metadata = new ObjectMetadata();
@@ -112,7 +114,7 @@ public class AliyunStorageServiceImpl implements StorageService {
 
     @Override
     public String buildUrl(String filePath) {
-        return buildUrl(filePath, fileProperties.getAliyun().getBucketName());
+        return buildUrl(filePath, fileProperties.getAliyun().getBucketName(), getAccessMode());
     }
 
     /**
@@ -120,9 +122,28 @@ public class AliyunStorageServiceImpl implements StorageService {
      */
     @Override
     public String buildUrl(String filePath, String storageBucket) {
+        return buildUrl(filePath, storageBucket, getAccessMode());
+    }
+
+    /**
+     * 私有 OSS 对象即时签发访问地址，固定公开 URL 仅用于公开对象。
+     */
+    @Override
+    public String buildUrl(String filePath, String storageBucket, StorageAccessMode accessMode) {
         FileProperties.AliyunConfig aliyunConfig = fileProperties.getAliyun();
         if (storageBucket == null || storageBucket.isBlank()) {
             throw new BusinessException("文件缺少历史存储桶，无法构建访问地址");
+        }
+        if (accessMode == StorageAccessMode.PRIVATE) {
+            checkClientInitialized();
+            try {
+                Date expiration = new Date(System.currentTimeMillis()
+                        + aliyunConfig.getPresignedUrlExpireSeconds() * 1000L);
+                return ossClient.generatePresignedUrl(storageBucket, filePath, expiration).toExternalForm();
+            } catch (Exception e) {
+                log.error("阿里云 OSS 私有文件签名失败，桶: {}，路径: {}", storageBucket, filePath, e);
+                throw new BusinessException("阿里云 OSS 私有文件访问地址生成失败");
+            }
         }
         String baseUrl = aliyunConfig.getDomain();
         if (baseUrl == null || baseUrl.isEmpty() || !Objects.equals(storageBucket, aliyunConfig.getBucketName())) {
@@ -143,6 +164,14 @@ public class AliyunStorageServiceImpl implements StorageService {
         return StorageType.ALIYUN_OSS;
     }
 
+    /**
+     * 返回新上传 OSS 文件的访问方式。
+     */
+    @Override
+    public StorageAccessMode getAccessMode() {
+        return fileProperties.getAliyun().getAccessMode();
+    }
+
     private void checkClientInitialized() {
         if (ossClient == null) {
             throw new BusinessException("阿里云 OSS 客户端未成功初始化，请检查历史存储的端点和凭据配置！");
@@ -150,15 +179,18 @@ public class AliyunStorageServiceImpl implements StorageService {
     }
 
     /**
-     * 保证存储桶存在，并设置为公共只读（PublicRead）权限
+     * 保证存储桶存在；仅公开文件允许初始化 PublicRead 权限。
      */
-    private void ensureBucketExists(String bucketName) {
+    private void ensureBucketExists(String bucketName, StorageAccessMode accessMode) {
         if (!ossClient.doesBucketExist(bucketName)) {
-            log.info("阿里云 OSS 存储桶 [{}] 不存在，正在自动创建并开启公共读权限...", bucketName);
+            log.info("阿里云 OSS 存储桶 [{}] 不存在，正在自动创建...", bucketName);
             ossClient.createBucket(bucketName);
-            // 自动配置 Bucket 访问控制为：公共读
-            ossClient.setBucketAcl(bucketName, CannedAccessControlList.PublicRead);
-            log.info("阿里云 OSS 存储桶 [{}] 创建并公共读初始化成功！", bucketName);
+            if (accessMode == StorageAccessMode.PUBLIC) {
+                ossClient.setBucketAcl(bucketName, CannedAccessControlList.PublicRead);
+                log.info("阿里云 OSS 存储桶 [{}] 创建并公共读初始化成功！", bucketName);
+            } else {
+                log.info("阿里云 OSS 存储桶 [{}] 创建成功，保持私有访问策略", bucketName);
+            }
         }
     }
 

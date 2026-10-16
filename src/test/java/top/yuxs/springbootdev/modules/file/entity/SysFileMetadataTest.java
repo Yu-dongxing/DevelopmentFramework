@@ -34,4 +34,14 @@ class SysFileMetadataTest {
                 .getType();
         Assertions.assertEquals("text", metadataType);
     }
+
+    /**
+     * 每条文件必须保存上传时的访问方式，后续切换默认配置不能改变历史文件访问策略。
+     */
+    @Test
+    void shouldPersistAccessModeColumn() {
+        boolean exists = new TableMetadataParser().parse(SysFile.class).getColumns().stream()
+                .anyMatch(column -> "access_mode".equals(column.getName()));
+        Assertions.assertTrue(exists);
+    }
 }

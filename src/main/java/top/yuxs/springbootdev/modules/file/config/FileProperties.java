@@ -11,6 +11,7 @@ import lombok.Data;
 import jakarta.annotation.PostConstruct;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 
 /**
@@ -74,6 +75,8 @@ public class FileProperties {
          * Web 访问路径
          */
         private String accessPath = "/uploads/**";
+        /** 上传文件的默认访问方式。 */
+        private StorageAccessMode accessMode = StorageAccessMode.PUBLIC;
     }
 
     @Data
@@ -98,6 +101,10 @@ public class FileProperties {
          * SecretKey
          */
         private String secretKey;
+        /** 上传文件的默认访问方式。 */
+        private StorageAccessMode accessMode = StorageAccessMode.PUBLIC;
+        /** 私有预签名 URL 有效期，单位为秒。 */
+        private int presignedUrlExpireSeconds = 900;
     }
 
     @Data
@@ -122,5 +129,9 @@ public class FileProperties {
          * SecretKey
          */
         private String secretKey;
+        /** 上传文件的默认访问方式。 */
+        private StorageAccessMode accessMode = StorageAccessMode.PUBLIC;
+        /** 私有预签名 URL 有效期，单位为秒。 */
+        private int presignedUrlExpireSeconds = 900;
     }
 }

@@ -10,10 +10,13 @@ package top.yuxs.springbootdev.modules.file.storage.impl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 import top.yuxs.springbootdev.modules.file.service.FileUploadCompensationService;
 import top.yuxs.springbootdev.modules.file.config.FileProperties;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
 import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
@@ -182,9 +185,31 @@ public class LocalStorageServiceImpl implements StorageService {
         return domain + prefix + cleanFilePath;
     }
 
+    /**
+     * 本地私有文件由业务接口读取，静态资源映射不再提供该文件。
+     */
+    @Override
+    public Resource getPrivateResource(String filePath, String storageBucket) {
+        String uploadPath = fileProperties.getLocal().getUploadPath();
+        Path rootPath = Paths.get(uploadPath).toAbsolutePath().normalize();
+        Path targetPath = rootPath.resolve(filePath).toAbsolutePath().normalize();
+        if (!targetPath.startsWith(rootPath) || !Files.isRegularFile(targetPath)) {
+            throw new BusinessException("私有本地文件不存在或路径不合法");
+        }
+        return new FileSystemResource(targetPath);
+    }
+
     @Override
     public StorageType getType() {
         return StorageType.LOCAL;
+    }
+
+    /**
+     * 返回新上传本地文件的访问方式。
+     */
+    @Override
+    public StorageAccessMode getAccessMode() {
+        return fileProperties.getLocal().getAccessMode();
     }
 
     private boolean isBlacklistedExtension(String extension) {

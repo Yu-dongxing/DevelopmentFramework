@@ -2,17 +2,21 @@ package top.yuxs.springbootdev.modules.file.storage.impl;
 
 import io.minio.MinioClient;
 import io.minio.RemoveObjectArgs;
+import io.minio.GetPresignedObjectUrlArgs;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.config.FileProperties;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
  * 验证 MinIO 操作不会在切桶后指向同名的新对象。
@@ -43,6 +47,20 @@ class MinioStorageServiceImplTest {
         MinioStorageServiceImpl service = createService(client);
         assertThrows(BusinessException.class, () -> service.delete("file.txt", null));
         verifyNoInteractions(client);
+    }
+
+    /**
+     * 私有对象必须使用新签发的地址，而不是公开对象路径拼接。
+     */
+    @Test
+    void shouldGeneratePresignedUrlForPrivateObject() throws Exception {
+        MinioClient client = mock(MinioClient.class);
+        MinioStorageServiceImpl service = createService(client);
+        when(client.getPresignedObjectUrl(any(GetPresignedObjectUrlArgs.class)))
+                .thenReturn("https://storage.example/old-bucket/file.txt?X-Amz-Signature=test");
+
+        assertEquals("https://storage.example/old-bucket/file.txt?X-Amz-Signature=test",
+                service.buildUrl("file.txt", "old-bucket", StorageAccessMode.PRIVATE));
     }
 
     /**

@@ -199,6 +199,8 @@ file:
     upload-path: ./uploads/
     # Spring MVC 映射到本地上传目录的访问路径。
     access-path: /uploads/**
+    # 文件访问方式：PUBLIC 返回静态 URL，PRIVATE 返回受登录及归属校验保护的应用地址。
+    access-mode: ${FILE_LOCAL_ACCESS_MODE:PUBLIC}
 
   # 阿里云 OSS 对象存储配置。
   aliyun:
@@ -212,6 +214,10 @@ file:
     access-key: xxxx
     # OSS 访问密钥 Secret；请通过环境变量或安全配置中心注入。
     secret-key: xxxx
+    # 文件访问方式：PRIVATE 按文件详情请求即时返回预签名 URL。
+    access-mode: ${FILE_ALIYUN_ACCESS_MODE:PUBLIC}
+    # 私有预签名下载地址有效期，单位为秒。
+    presigned-url-expire-seconds: ${FILE_ALIYUN_URL_EXPIRE_SECONDS:900}
 
   # MinIO 对象存储配置。
   minio:
@@ -225,6 +231,10 @@ file:
     access-key: minioadmin
     # MinIO 私有访问密钥；请通过环境变量或安全配置中心注入。
     secret-key: minioadmin
+    # 文件访问方式：PRIVATE 按文件详情请求即时返回预签名 URL。
+    access-mode: ${FILE_MINIO_ACCESS_MODE:PUBLIC}
+    # 私有预签名下载地址有效期，单位为秒。
+    presigned-url-expire-seconds: ${FILE_MINIO_URL_EXPIRE_SECONDS:900}
 
 # Aegis 业务日志配置
 aegis:

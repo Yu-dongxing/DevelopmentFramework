@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import top.yuxs.springbootdev.modules.file.entity.SysFile;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 import top.yuxs.springbootdev.modules.file.service.SysFileService;
 
 import java.nio.file.Files;
@@ -96,6 +97,23 @@ class FileWebMvcConfigTest {
      */
     @Test
     void shouldRejectUntrackedFile() throws Exception {
+        mockMvc.perform(get("/uploads/" + filename)).andExpect(status().isNotFound());
+    }
+
+    /**
+     * 本地私有文件不能被静态资源映射绕过授权读取。
+     */
+    @Test
+    void shouldNotServePrivateFileThroughStaticPath() throws Exception {
+        SysFile file = new SysFile();
+        file.setStorageType("LOCAL");
+        file.setStorageBucket("local");
+        file.setFilePath(filename);
+        file.setAccessMode(StorageAccessMode.PRIVATE.name());
+        file.setUploadStatus(1);
+        fileService.save(file);
+        fileId = file.getId();
+
         mockMvc.perform(get("/uploads/" + filename)).andExpect(status().isNotFound());
     }
 }

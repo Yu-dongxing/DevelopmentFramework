@@ -103,6 +103,13 @@ public class SysFile extends BaseEntity {
     private String storageBucket;
 
     /**
+     * 上传时访问方式（PRIVATE：私有，PUBLIC：公开）
+     */
+    @TableField("access_mode")
+    @ColumnComment("上传时访问方式(PRIVATE:私有,PUBLIC:公开)")
+    private String accessMode;
+
+    /**
      * 对象Key/相对路径
      */
     @TableField("file_path")

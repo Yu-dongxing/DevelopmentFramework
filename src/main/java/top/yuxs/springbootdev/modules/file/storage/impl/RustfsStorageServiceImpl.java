@@ -181,7 +181,7 @@ public class RustfsStorageServiceImpl implements StorageService {
      */
     @Override
     public String buildUrl(String filePath) {
-        return buildUrl(filePath, fileProperties.getRustfs().getBucketName());
+        return buildUrl(filePath, fileProperties.getRustfs().getBucketName(), getAccessMode());
     }
 
     /**
@@ -189,10 +189,18 @@ public class RustfsStorageServiceImpl implements StorageService {
      */
     @Override
     public String buildUrl(String filePath, String storageBucket) {
+        return buildUrl(filePath, storageBucket, getAccessMode());
+    }
+
+    /**
+     * 使用文件记录的访问方式构建地址，历史文件不受当前默认访问方式切换影响。
+     */
+    @Override
+    public String buildUrl(String filePath, String storageBucket, StorageAccessMode accessMode) {
         checkClient();
         requireLocation(filePath, storageBucket);
         RustfsConfig config = fileProperties.getRustfs();
-        if (!usesTemporaryUrl()) {
+        if (accessMode == StorageAccessMode.PUBLIC) {
             return client.utilities().getUrl(GetUrlRequest.builder()
                     .endpoint(URI.create(config.effectivePublicEndpoint()))
                     .bucket(storageBucket).key(filePath).build()).toExternalForm();
@@ -211,7 +219,15 @@ public class RustfsStorageServiceImpl implements StorageService {
      */
     @Override
     public boolean usesTemporaryUrl() {
-        return fileProperties.getRustfs().getAccessMode() == StorageAccessMode.PRIVATE;
+        return getAccessMode() == StorageAccessMode.PRIVATE;
+    }
+
+    /**
+     * 返回新上传 RustFS 文件的访问方式。
+     */
+    @Override
+    public StorageAccessMode getAccessMode() {
+        return fileProperties.getRustfs().getAccessMode();
     }
 
     /**

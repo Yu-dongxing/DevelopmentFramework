@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.resource.PathResourceResolver;
 import top.yuxs.springbootdev.modules.file.entity.SysFile;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 import top.yuxs.springbootdev.modules.file.service.SysFileService;
 
 import java.io.IOException;
@@ -32,6 +33,8 @@ public class LocalFileResourceResolver extends PathResourceResolver {
         boolean available = sysFileService.exists(new LambdaQueryWrapper<SysFile>()
                 .eq(SysFile::getStorageType, StorageType.LOCAL.name())
                 .eq(SysFile::getFilePath, resourcePath)
+                .and(wrapper -> wrapper.eq(SysFile::getAccessMode, StorageAccessMode.PUBLIC.name())
+                        .or().isNull(SysFile::getAccessMode))
                 .eq(SysFile::getUploadStatus, 1));
         return available ? resource : null;
     }

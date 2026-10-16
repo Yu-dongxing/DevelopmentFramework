@@ -30,6 +30,7 @@ import org.junit.jupiter.api.AfterEach;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.entity.SysFile;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 import top.yuxs.springbootdev.modules.file.event.FileUploadedEvent;
 import top.yuxs.springbootdev.modules.file.storage.StorageFactory;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
@@ -98,8 +99,10 @@ class FileContextServiceTest {
         multipartFile = new MockMultipartFile("file", "test.txt", "text/plain", new byte[]{1, 2, 3});
         when(storageFactory.getActiveService()).thenReturn(storage);
         when(storage.getType()).thenReturn(StorageType.MINIO);
+        when(storage.getAccessMode()).thenReturn(StorageAccessMode.PUBLIC);
         when(storage.upload(any(), anyString())).thenReturn(new StorageUploadResult(filePath, "old-bucket", "md5"));
-        when(storage.buildUrl(filePath, "old-bucket")).thenReturn("https://storage/old-bucket/" + filePath);
+        when(storage.buildUrl(filePath, "old-bucket", StorageAccessMode.PUBLIC))
+                .thenReturn("https://storage/old-bucket/" + filePath);
         MockHttpServletRequest request = new MockHttpServletRequest();
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
         SaTokenContextForThreadLocalStaff.setModelBox(new SaRequestForServlet(request),
@@ -162,7 +165,8 @@ class FileContextServiceTest {
      */
     @Test
     void shouldCompensateMetadataFailure() {
-        when(storage.buildUrl(filePath, "old-bucket")).thenThrow(new IllegalStateException("模拟地址构建失败"));
+        when(storage.buildUrl(filePath, "old-bucket", StorageAccessMode.PUBLIC))
+                .thenThrow(new IllegalStateException("模拟地址构建失败"));
         assertThrows(IllegalStateException.class,
                 () -> contextService.upload(multipartFile, null, null, "test"));
         verify(storage).delete(filePath, "old-bucket");
@@ -246,18 +250,22 @@ class FileContextServiceTest {
     @Test
     void shouldPersistPrivateLocationWithoutTemporaryUrl() {
         when(storage.getType()).thenReturn(StorageType.RUSTFS);
+        when(storage.getAccessMode()).thenReturn(StorageAccessMode.PRIVATE);
         when(storage.usesTemporaryUrl()).thenReturn(true);
         when(storageFactory.getService(StorageType.RUSTFS)).thenReturn(storage);
+        when(storage.buildUrl(filePath, "old-bucket", StorageAccessMode.PRIVATE))
+                .thenReturn("https://storage.example/private-signed-url");
         try (MockedStatic<StpUtil> token = mockStatic(StpUtil.class)) {
             token.when(StpUtil::isLogin).thenReturn(true);
             token.when(StpUtil::getLoginIdAsLong).thenReturn(10L);
             token.when(StpUtil::getLoginId).thenReturn(10L);
             SysFile uploaded = contextService.upload(multipartFile, null, null, "test");
             assertNull(fileService.getById(uploaded.getId()).getFileUrl());
-            verify(storage, never()).buildUrl(anyString(), anyString());
+            verify(storage, never()).buildUrl(anyString(), anyString(), any());
             assertNotNull(contextService.prepareUploadResponse(uploaded).getFileUrl());
             assertNull(uploaded.getFileUrl());
-            when(storage.buildUrl(filePath, "old-bucket")).thenThrow(new IllegalStateException("模拟签名失败"));
+            when(storage.buildUrl(filePath, "old-bucket", StorageAccessMode.PRIVATE))
+                    .thenThrow(new IllegalStateException("模拟签名失败"));
             assertNull(contextService.prepareUploadResponse(uploaded).getFileUrl());
             assertNotNull(fileService.getById(uploaded.getId()));
             verify(storage, never()).delete(anyString(), anyString());
@@ -270,6 +278,7 @@ class FileContextServiceTest {
     @Test
     void shouldDenyPrivateAccessBeforeSigningOrMutation() {
         when(storage.getType()).thenReturn(StorageType.RUSTFS);
+        when(storage.getAccessMode()).thenReturn(StorageAccessMode.PRIVATE);
         when(storage.usesTemporaryUrl()).thenReturn(true);
         when(storageFactory.getService(StorageType.RUSTFS)).thenReturn(storage);
         try (MockedStatic<StpUtil> token = mockStatic(StpUtil.class)) {
@@ -281,7 +290,7 @@ class FileContextServiceTest {
             assertThrows(BusinessException.class, () -> contextService.prepareResponse(uploaded));
             assertThrows(BusinessException.class, () -> contextService.delete(uploaded.getId(), true));
             assertThrows(BusinessException.class, () -> contextService.delete(uploaded.getId(), false));
-            verify(storage, never()).buildUrl(anyString(), anyString());
+            verify(storage, never()).buildUrl(anyString(), anyString(), any());
             assertEquals(0, fileService.getIncludingDeleted(uploaded.getId()).getIsDeleted());
             assertEquals(0, fileService.getIncludingDeleted(uploaded.getId()).getPhysicalDeleteStatus());
         }
@@ -293,6 +302,7 @@ class FileContextServiceTest {
     @Test
     void shouldCompensatePrivateRollbackUsingHistoricalLocation() {
         when(storage.getType()).thenReturn(StorageType.RUSTFS);
+        when(storage.getAccessMode()).thenReturn(StorageAccessMode.PRIVATE);
         when(storage.usesTemporaryUrl()).thenReturn(true);
         doThrow(new IllegalStateException("模拟 RustFS 不可用")).when(storage).delete(filePath, "old-bucket");
         try (MockedStatic<StpUtil> token = mockStatic(StpUtil.class)) {

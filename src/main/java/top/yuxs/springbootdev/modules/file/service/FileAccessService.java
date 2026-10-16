@@ -12,7 +12,7 @@ import top.yuxs.springbootdev.modules.file.enums.StorageType;
 import java.util.Objects;
 
 /**
- * RustFS 文件访问边界；首版只允许上传者访问私有文件和删除对象。
+ * 文件访问边界；私有文件只允许上传者在服务端授权后获得访问地址。
  */
 @Service
 @RequiredArgsConstructor
@@ -20,10 +20,19 @@ public class FileAccessService {
     private final FileProperties properties;
 
     /**
-     * 私有上传必须有明确归属，禁止产生无法授权读取的匿名私有文件。
+     * 兼容既有调用：非 RustFS 默认按公开文件处理，RustFS 读取当前默认配置。
      */
     public void checkUpload(StorageType type) {
-        if (type == StorageType.RUSTFS && isPrivate()) {
+        StorageAccessMode accessMode = type == StorageType.RUSTFS
+                ? properties.getRustfs().getAccessMode() : StorageAccessMode.PUBLIC;
+        checkUpload(type, accessMode);
+    }
+
+    /**
+     * 私有上传必须有明确归属，禁止产生无法授权读取的匿名私有文件。
+     */
+    public void checkUpload(StorageType type, StorageAccessMode accessMode) {
+        if (accessMode == StorageAccessMode.PRIVATE) {
             StpUtil.checkLogin();
         }
     }
@@ -32,7 +41,7 @@ public class FileAccessService {
      * 私有文件在返回详情和签发 URL 前校验归属。
      */
     public void checkRead(SysFile file) {
-        if (isRustfs(file) && isPrivate()) {
+        if (getAccessMode(file) == StorageAccessMode.PRIVATE) {
             checkOwner(file);
         }
     }
@@ -41,7 +50,7 @@ public class FileAccessService {
      * RustFS 公开可读不代表允许匿名删除，删除一律要求上传者身份。
      */
     public void checkDelete(SysFile file) {
-        if (isRustfs(file)) {
+        if (isRustfs(file) || getAccessMode(file) == StorageAccessMode.PRIVATE) {
             checkOwner(file);
         }
     }
@@ -54,10 +63,17 @@ public class FileAccessService {
     }
 
     /**
-     * 判断当前 RustFS 是否采用私有访问模式。
+     * 读取文件记录中的访问方式；仅为旧 RustFS 记录兼容历史默认配置。
      */
-    private boolean isPrivate() {
-        return properties.getRustfs().getAccessMode() == StorageAccessMode.PRIVATE;
+    private StorageAccessMode getAccessMode(SysFile file) {
+        if (file.getAccessMode() == null || file.getAccessMode().isBlank()) {
+            return isRustfs(file) ? properties.getRustfs().getAccessMode() : StorageAccessMode.PUBLIC;
+        }
+        try {
+            return StorageAccessMode.valueOf(file.getAccessMode());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException("文件访问方式不合法");
+        }
     }
 
     /**

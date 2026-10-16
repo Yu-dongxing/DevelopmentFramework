@@ -8,6 +8,9 @@
 package top.yuxs.springbootdev.modules.file.storage;
 
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
+import top.yuxs.springbootdev.core.exception.BusinessException;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
 
 /**
@@ -54,6 +57,30 @@ public interface StorageService {
      */
     default String buildUrl(String filePath, String storageBucket) {
         return buildUrl(filePath);
+    }
+
+    /**
+     * 根据上传时固化的访问方式构建地址，私有对象必须返回新的临时授权地址。
+     */
+    default String buildUrl(String filePath, String storageBucket, StorageAccessMode accessMode) {
+        if (accessMode == StorageAccessMode.PRIVATE) {
+            throw new BusinessException("当前存储不支持私有文件临时访问地址");
+        }
+        return buildUrl(filePath, storageBucket);
+    }
+
+    /**
+     * 返回本次上传应持久化的访问方式；保留旧实现的临时地址语义以兼容存储适配器。
+     */
+    default StorageAccessMode getAccessMode() {
+        return usesTemporaryUrl() ? StorageAccessMode.PRIVATE : StorageAccessMode.PUBLIC;
+    }
+
+    /**
+     * 为本地私有文件提供受服务层授权保护的资源，云存储默认不支持该读取方式。
+     */
+    default Resource getPrivateResource(String filePath, String storageBucket) {
+        throw new BusinessException("当前存储不支持应用内私有文件读取");
     }
 
     /**

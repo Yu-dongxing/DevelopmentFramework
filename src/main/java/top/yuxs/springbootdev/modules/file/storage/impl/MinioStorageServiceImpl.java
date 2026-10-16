@@ -8,6 +8,7 @@
 package top.yuxs.springbootdev.modules.file.storage.impl;
 
 import io.minio.*;
+import io.minio.Http.Method;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,8 @@ import top.yuxs.springbootdev.modules.file.service.FileUploadCompensationService
 import java.io.InputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
+import java.util.concurrent.TimeUnit;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 import top.yuxs.springbootdev.modules.file.storage.StorageFileSupport;
 
 /**
@@ -54,7 +57,7 @@ public class MinioStorageServiceImpl implements StorageService {
             String bucketName = fileProperties.getMinio().getBucketName();
 
             // 自动检查并创建存储桶，保证开箱即用
-            ensureBucketExists(bucketName);
+            ensureBucketExists(bucketName, getAccessMode());
 
             // 上传文件流到 MinIO
             MessageDigest messageDigest = MessageDigest.getInstance("MD5");
@@ -115,7 +118,7 @@ public class MinioStorageServiceImpl implements StorageService {
 
     @Override
     public String buildUrl(String filePath) {
-        return buildUrl(filePath, fileProperties.getMinio().getBucketName());
+        return buildUrl(filePath, fileProperties.getMinio().getBucketName(), getAccessMode());
     }
 
     /**
@@ -123,8 +126,27 @@ public class MinioStorageServiceImpl implements StorageService {
      */
     @Override
     public String buildUrl(String filePath, String storageBucket) {
+        return buildUrl(filePath, storageBucket, getAccessMode());
+    }
+
+    /**
+     * 私有 MinIO 对象按请求重新签发 URL，公开对象保留固定访问地址。
+     */
+    @Override
+    public String buildUrl(String filePath, String storageBucket, StorageAccessMode accessMode) {
         if (storageBucket == null || storageBucket.isBlank()) {
             throw new BusinessException("文件缺少历史存储桶，无法构建访问地址");
+        }
+        if (accessMode == StorageAccessMode.PRIVATE) {
+            checkClientInitialized();
+            try {
+                return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                        .method(Method.GET).bucket(storageBucket).object(filePath)
+                        .expiry(fileProperties.getMinio().getPresignedUrlExpireSeconds(), TimeUnit.SECONDS).build());
+            } catch (Exception e) {
+                log.error("MinIO 私有文件签名失败，桶: {}，路径: {}", storageBucket, filePath, e);
+                throw new BusinessException("MinIO 私有文件访问地址生成失败");
+            }
         }
         FileProperties.MinioConfig minioConfig = fileProperties.getMinio();
         String baseUrl = minioConfig.getDomain();
@@ -145,6 +167,14 @@ public class MinioStorageServiceImpl implements StorageService {
         return StorageType.MINIO;
     }
 
+    /**
+     * 返回新上传 MinIO 文件的访问方式。
+     */
+    @Override
+    public StorageAccessMode getAccessMode() {
+        return fileProperties.getMinio().getAccessMode();
+    }
+
     private void checkClientInitialized() {
         if (minioClient == null) {
             throw new BusinessException("MinIO 客户端未成功初始化，请检查历史存储的端点和凭据配置！");
@@ -152,15 +182,19 @@ public class MinioStorageServiceImpl implements StorageService {
     }
 
     /**
-     * 保证存储桶存在，并设置为公共只读策略
+     * 保证存储桶存在；仅公开文件允许初始化匿名只读策略。
      */
-    private void ensureBucketExists(String bucketName) throws Exception {
+    private void ensureBucketExists(String bucketName, StorageAccessMode accessMode) throws Exception {
         boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build());
         if (!found) {
             log.info("MinIO 存储桶 [{}] 不存在，正在自动创建...", bucketName);
             minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
 
-            // 自动配置 Bucket Policy 为匿名公开只读 (GetObject)
+            if (accessMode != StorageAccessMode.PUBLIC) {
+                log.info("MinIO 存储桶 [{}] 创建成功，保持私有访问策略", bucketName);
+                return;
+            }
+            // 仅 PUBLIC 配置允许匿名公开只读 (GetObject)
             String policy = "{\n" +
                     "  \"Version\": \"2012-10-17\",\n" +
                     "  \"Statement\": [\n" +

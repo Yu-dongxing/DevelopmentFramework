@@ -22,6 +22,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 import top.yuxs.springbootdev.modules.file.entity.SysFile;
 import top.yuxs.springbootdev.modules.file.enums.StorageType;
+import top.yuxs.springbootdev.modules.file.enums.StorageAccessMode;
 import top.yuxs.springbootdev.core.exception.BusinessException;
 import top.yuxs.springbootdev.modules.file.event.FileUploadedEvent;
 import top.yuxs.springbootdev.modules.file.event.FilePhysicalDeleteEvent;
@@ -29,6 +30,7 @@ import top.yuxs.springbootdev.modules.file.storage.StorageFactory;
 import top.yuxs.springbootdev.modules.file.storage.StorageService;
 import top.yuxs.springbootdev.modules.file.storage.StorageUploadResult;
 import top.yuxs.springbootdev.modules.file.storage.StorageFileSupport;
+import org.springframework.core.io.Resource;
 import top.yuxs.springbootdev.core.utils.IpUtils;
 
 
@@ -83,7 +85,8 @@ public class FileContextService {
         }
         String storagePath = path == null ? "default" : path;
         StorageService storageService = storageFactory.getActiveService();
-        fileAccessService.checkUpload(storageService.getType());
+        StorageAccessMode accessMode = storageService.getAccessMode();
+        fileAccessService.checkUpload(storageService.getType(), accessMode);
 
         // 存储层在写入过程中计算摘要；返回结果记录本次实际使用的桶和路径。
         StorageUploadResult uploadResult = storageService.upload(file, storagePath);
@@ -103,8 +106,8 @@ public class FileContextService {
                 }
             }
         });
-        String fileUrl = storageService.usesTemporaryUrl() ? null
-                : storageService.buildUrl(uploadResult.filePath(), uploadResult.storageBucket());
+        String fileUrl = accessMode == StorageAccessMode.PRIVATE ? null
+                : storageService.buildUrl(uploadResult.filePath(), uploadResult.storageBucket(), accessMode);
 
         // 构造落库实体，任何异常均由上面的事务回调统一补偿。
         SysFile sysFile = new SysFile();
@@ -118,6 +121,7 @@ public class FileContextService {
         sysFile.setMd5(uploadResult.md5());
         sysFile.setStorageType(storageService.getType().name());
         sysFile.setStorageBucket(uploadResult.storageBucket());
+        sysFile.setAccessMode(accessMode.name());
         sysFile.setFilePath(uploadResult.filePath());
         sysFile.setFileUrl(fileUrl);
         sysFile.setUploadStatus(1);
@@ -191,7 +195,50 @@ public class FileContextService {
         }
         fileAccessService.checkRead(sysFile);
         StorageService storageService = storageFactory.getService(StorageType.valueOf(sysFile.getStorageType()));
-        return storageService.buildUrl(sysFile.getFilePath(), sysFile.getStorageBucket());
+        StorageAccessMode accessMode = getAccessMode(sysFile);
+        if (accessMode == StorageAccessMode.PRIVATE && storageService.getType() == StorageType.LOCAL) {
+            return buildLocalPrivateUrl(sysFile.getId());
+        }
+        return storageService.buildUrl(sysFile.getFilePath(), sysFile.getStorageBucket(), accessMode);
+    }
+
+    /**
+     * 读取本地私有文件前统一执行元数据和归属校验，避免静态资源映射绕过权限。
+     */
+    public Resource getPrivateLocalResource(SysFile sysFile) {
+        if (sysFile == null) {
+            throw new BusinessException("文件不存在或已删除");
+        }
+        fileAccessService.checkRead(sysFile);
+        if (getAccessMode(sysFile) != StorageAccessMode.PRIVATE
+                || StorageType.valueOf(sysFile.getStorageType()) != StorageType.LOCAL) {
+            throw new BusinessException("该文件不支持私有本地读取");
+        }
+        return storageFactory.getService(StorageType.LOCAL)
+                .getPrivateResource(sysFile.getFilePath(), sysFile.getStorageBucket());
+    }
+
+    /**
+     * 将本地私有文件统一指向受鉴权的应用接口，不暴露真实磁盘路径。
+     */
+    private String buildLocalPrivateUrl(Long fileId) {
+        String domain = storageFactory.getFileProperties().getLocal().getDomain();
+        return domain.endsWith("/") ? domain + "api/common/file/" + fileId + "/content"
+                : domain + "/api/common/file/" + fileId + "/content";
+    }
+
+    /**
+     * 兼容数据库重建前的历史记录；新记录始终明确写入访问方式。
+     */
+    private StorageAccessMode getAccessMode(SysFile sysFile) {
+        if (sysFile.getAccessMode() == null || sysFile.getAccessMode().isBlank()) {
+            return StorageAccessMode.PUBLIC;
+        }
+        try {
+            return StorageAccessMode.valueOf(sysFile.getAccessMode());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException("文件访问方式不合法");
+        }
     }
 
     /**
